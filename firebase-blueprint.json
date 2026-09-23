@@ -1,0 +1,102 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile with game stats and highest unlocked level",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "displayName": { "type": "string", "maxLength": 50 },
+        "avatar": { "type": "string", "maxLength": 50 },
+        "highestLevel": { "type": "number" },
+        "totalStars": { "type": "number" },
+        "totalScore": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "avatar"]
+    },
+    "LeaderboardEntry": {
+      "title": "Leaderboard Score Entry",
+      "description": "High score record for global ranking",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "playerName": { "type": "string", "maxLength": 50 },
+        "playerAvatar": { "type": "string", "maxLength": 50 },
+        "level": { "type": "number" },
+        "gridSize": { "type": "number" },
+        "score": { "type": "number" },
+        "moves": { "type": "number" },
+        "timeSeconds": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "playerName", "playerAvatar", "level", "score", "moves", "timeSeconds"]
+    },
+    "MultiplayerRoom": {
+      "title": "Multiplayer Game Room",
+      "description": "Real-time room for 1v1 multiplayer puzzle match",
+      "type": "object",
+      "properties": {
+        "roomCode": { "type": "string", "maxLength": 10 },
+        "status": { "type": "string", "enum": ["waiting", "playing", "finished"] },
+        "level": { "type": "number" },
+        "gridSize": { "type": "number" },
+        "maxNumber": { "type": "number" },
+        "initialBoard": { "type": "string" },
+        "hostId": { "type": "string", "maxLength": 128 },
+        "hostName": { "type": "string", "maxLength": 50 },
+        "hostAvatar": { "type": "string", "maxLength": 50 },
+        "hostProgress": { "type": "number" },
+        "hostMoves": { "type": "number" },
+        "hostTime": { "type": "number" },
+        "hostFinished": { "type": "boolean" },
+        "guestId": { "type": "string", "maxLength": 128 },
+        "guestName": { "type": "string", "maxLength": 50 },
+        "guestAvatar": { "type": "string", "maxLength": 50 },
+        "guestProgress": { "type": "number" },
+        "guestMoves": { "type": "number" },
+        "guestTime": { "type": "number" },
+        "guestFinished": { "type": "boolean" },
+        "isBotMatch": { "type": "boolean" },
+        "winnerId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["roomCode", "status", "level", "gridSize", "maxNumber", "hostId", "hostName"]
+    },
+    "MatchmakingQueue": {
+      "title": "Matchmaking Queue Entry",
+      "description": "Player waiting for a random online opponent match",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "playerName": { "type": "string", "maxLength": 50 },
+        "playerAvatar": { "type": "string", "maxLength": 50 },
+        "level": { "type": "number" },
+        "status": { "type": "string", "enum": ["waiting", "matched"] },
+        "roomId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "playerName", "playerAvatar", "level", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profile data"
+    },
+    "/leaderboard/{scoreId}": {
+      "schema": { "$ref": "#/entities/LeaderboardEntry" },
+      "description": "Global high scores leaderboard entries"
+    },
+    "/multiplayer_rooms/{roomId}": {
+      "schema": { "$ref": "#/entities/MultiplayerRoom" },
+      "description": "Multiplayer match rooms"
+    },
+    "/matchmaking_queue/{queueId}": {
+      "schema": { "$ref": "#/entities/MatchmakingQueue" },
+      "description": "Matchmaking queue for random online player matching"
+    }
+  }
+}

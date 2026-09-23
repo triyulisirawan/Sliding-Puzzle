@@ -1,0 +1,6 @@
+{
+  "name": "Angka Geser Ceria - Puzzle Anak TK & SD",
+  "description": "Game teka-teki geser kotak angka berlevel yang menyenangkan untuk anak TK dan SD dengan timer, skor, papan peringkat global, dan multiplayer real-time!",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
