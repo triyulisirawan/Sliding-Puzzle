@@ -26,29 +26,22 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
   isOpen,
   onClose,
 }) => {
-  const [selectedLevelFilter, setSelectedLevelFilter] = useState<number>(0); // 0 = All levels
+  const [selectedLevelFilter, setSelectedLevelFilter] = useState<number>(-1); // -1 = All levels
   const [records, setRecords] = useState<LeaderboardRecord[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isCleaning, setIsCleaning] = useState<boolean>(false);
 
-  // Auto-clean any legacy 2x2 and legacy Level 2 (3x3) records from Firestore
+  // Auto-clean any legacy Level 2 (3x3) records from Firestore
   const cleanLegacyRecordsFromFirestore = async () => {
     try {
       setIsCleaning(true);
       const path = 'leaderboard';
-      
-      // Query 1: gridSize == 2
-      const q1 = query(collection(db, path), where('gridSize', '==', 2));
-      const snap1 = await getDocs(q1);
 
-      // Query 2: level == 2 AND gridSize == 3
+      // Query: level == 2 AND gridSize == 3
       const q2 = query(collection(db, path), where('level', '==', 2), where('gridSize', '==', 3));
       const snap2 = await getDocs(q2);
 
       const deletePromises: Promise<void>[] = [];
-      snap1.forEach((docSnap) => {
-        deletePromises.push(deleteDoc(doc(db, path, docSnap.id)).catch(() => {}));
-      });
       snap2.forEach((docSnap) => {
         deletePromises.push(deleteDoc(doc(db, path, docSnap.id)).catch(() => {}));
       });
@@ -74,7 +67,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
 
     try {
       let q;
-      if (selectedLevelFilter === 0) {
+      if (selectedLevelFilter === -1) {
         q = query(collection(db, path), orderBy('score', 'desc'), limit(50));
       } else {
         q = query(
@@ -91,14 +84,13 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
           const list: LeaderboardRecord[] = [];
           snapshot.forEach((docSnap) => {
             const data = docSnap.data();
-            const recLevel = data.level || 1;
-            const gSize = data.gridSize || 4;
+            const recLevel = data.level !== undefined ? data.level : 1;
+            const gSize = data.gridSize || 3;
 
-            const isLegacy2x2 = gSize <= 2;
             const isLegacyLvl2_3x3 = recLevel === 2 && gSize === 3;
 
-            // Exclude old 2x2 records and old Level 2 (3x3) records
-            if (!isLegacy2x2 && !isLegacyLvl2_3x3) {
+            // Exclude old Level 2 (3x3) records
+            if (!isLegacyLvl2_3x3) {
               list.push({
                 id: docSnap.id,
                 userId: data.userId || '',
@@ -167,32 +159,35 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
           <button
             onClick={() => {
               soundManager.playClick();
-              setSelectedLevelFilter(0);
+              setSelectedLevelFilter(-1);
             }}
             className={`px-3 py-1 rounded-full text-xs font-black shrink-0 transition-all border ${
-              selectedLevelFilter === 0
+              selectedLevelFilter === -1
                 ? 'bg-amber-600 text-white border-amber-700 shadow-xs'
                 : 'bg-white text-amber-900 border-amber-300 hover:bg-amber-100'
             }`}
           >
             Semua Level
           </button>
-          {GAME_LEVELS.map((lvl) => (
-            <button
-              key={lvl.id}
-              onClick={() => {
-                soundManager.playClick();
-                setSelectedLevelFilter(lvl.id);
-              }}
-              className={`px-3 py-1 rounded-full text-xs font-black shrink-0 transition-all border ${
-                selectedLevelFilter === lvl.id
-                  ? 'bg-amber-600 text-white border-amber-700 shadow-xs'
-                  : 'bg-white text-amber-900 border-amber-300 hover:bg-amber-100'
-              }`}
-            >
-              Lvl {lvl.id} ({lvl.gridSize}x{lvl.gridSize})
-            </button>
-          ))}
+          {GAME_LEVELS.map((lvl) => {
+            const gridLabel = `${lvl.gridCols || lvl.gridSize}x${lvl.gridRows || lvl.gridSize}`;
+            return (
+              <button
+                key={lvl.id}
+                onClick={() => {
+                  soundManager.playClick();
+                  setSelectedLevelFilter(lvl.id);
+                }}
+                className={`px-3 py-1 rounded-full text-xs font-black shrink-0 transition-all border ${
+                  selectedLevelFilter === lvl.id
+                    ? 'bg-amber-600 text-white border-amber-700 shadow-xs'
+                    : 'bg-white text-amber-900 border-amber-300 hover:bg-amber-100'
+                }`}
+              >
+                Lvl {lvl.id} ({gridLabel})
+              </button>
+            );
+          })}
         </div>
 
         {/* Leaderboard Table Content */}
@@ -218,6 +213,10 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
             records.map((rec, index) => {
               const rank = index + 1;
               const isCurrentPlayer = rec.userId === player.uid;
+              const lvlConfig = GAME_LEVELS.find((l) => l.id === rec.level);
+              const gridLabel = lvlConfig
+                ? `${lvlConfig.gridCols || lvlConfig.gridSize}x${lvlConfig.gridRows || lvlConfig.gridSize}`
+                : `${rec.gridSize}x${rec.gridSize}`;
 
               let rankBadge = (
                 <span className="font-black text-xs text-amber-900 w-6 text-center">
@@ -259,7 +258,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
                         )}
                       </div>
                       <div className="text-[11px] font-bold text-amber-800">
-                        Level {rec.level} ({rec.gridSize}x{rec.gridSize}) • {rec.moves} langkah • {formatTime(rec.timeSeconds)}
+                        Level {rec.level} ({gridLabel}) • {rec.moves} langkah • {formatTime(rec.timeSeconds)}
                       </div>
                     </div>
                   </div>

@@ -27,7 +27,8 @@ import {
   Clock,
 } from 'lucide-react';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { GAME_LEVELS, GameLevelConfig, PlayerProfile, TileItem } from '../types/game';
+import { GAME_LEVELS, GameLevelConfig, PlayerProfile, TileItem, LEVEL_0_MASCOTS } from '../types/game';
+import { getLevel0TileStyle } from '../utils/level0Picture';
 import {
   generateSolvableBoard,
   getMovableTileIndices,
@@ -365,7 +366,9 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
     if (isFinished || roomData?.status !== 'playing') return;
 
     const emptyIdx = board.findIndex((t) => t.value === 0);
-    const movables = getMovableTileIndices(emptyIdx, selectedLevel.gridSize);
+    const cols = selectedLevel.gridCols || selectedLevel.gridSize;
+    const rows = selectedLevel.gridRows || selectedLevel.gridSize;
+    const movables = getMovableTileIndices(emptyIdx, cols, rows);
 
     if (movables.includes(clickedIdx)) {
       soundManager.playSlide();
@@ -762,78 +765,118 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
                 Menyiapkan Papan Permainan...
               </div>
             ) : (
-              <div
-                className="relative aspect-square w-full"
-                style={{
-                  maxWidth: currentGridSize === 3 ? '340px' : currentGridSize === 4 ? '400px' : '440px',
-                }}
-              >
-                {/* Static Background Grid Slots */}
-                {Array.from({ length: currentGridSize * currentGridSize }).map((_, slotIdx) => {
-                  const r = Math.floor(slotIdx / currentGridSize);
-                  const c = slotIdx % currentGridSize;
-                  const percent = 100 / currentGridSize;
-                  return (
-                    <div
-                      key={`mp-slot-${r}-${c}`}
-                      className="absolute p-1 sm:p-1.5"
-                      style={{
-                        width: `${percent}%`,
-                        height: `${percent}%`,
-                        left: `${c * percent}%`,
-                        top: `${r * percent}%`,
-                      }}
-                    >
-                      <div className="w-full h-full rounded-2xl sm:rounded-3xl bg-amber-300/40 border-2 border-amber-400/50 shadow-inner" />
-                    </div>
-                  );
-                })}
+              (() => {
+                const cols = selectedLevel.gridCols || selectedLevel.gridSize;
+                const rows = selectedLevel.gridRows || selectedLevel.gridSize;
+                const colPercent = 100 / cols;
+                const rowPercent = 100 / rows;
 
-                {/* Interactive Sliding Tiles */}
-                {board.map((tile, idx) => {
-                  if (tile.value === 0) return null;
+                return (
+                  <div
+                    className="relative w-full"
+                    style={{
+                      maxWidth: cols === 3 && rows === 2 ? '360px' : cols === 3 ? '340px' : cols === 4 ? '400px' : '440px',
+                      aspectRatio: `${cols} / ${rows}`,
+                    }}
+                  >
+                    {/* Static Background Grid Slots */}
+                    {Array.from({ length: cols * rows }).map((_, slotIdx) => {
+                      const r = Math.floor(slotIdx / cols);
+                      const c = slotIdx % cols;
+                      return (
+                        <div
+                          key={`mp-slot-${r}-${c}`}
+                          className="absolute p-1 sm:p-1.5"
+                          style={{
+                            width: `${colPercent}%`,
+                            height: `${rowPercent}%`,
+                            left: `${c * colPercent}%`,
+                            top: `${r * rowPercent}%`,
+                          }}
+                        >
+                          <div className="w-full h-full rounded-2xl sm:rounded-3xl bg-amber-300/40 border-2 border-amber-400/50 shadow-inner" />
+                        </div>
+                      );
+                    })}
 
-                  const row = Math.floor(idx / currentGridSize);
-                  const col = idx % currentGridSize;
-                  const percent = 100 / currentGridSize;
-                  const isTarget = tile.isTargetNumber;
-                  const isCorrectPosition = isTarget && idx === tile.value - 1;
+                    {/* Interactive Sliding Tiles */}
+                    {board.map((tile, idx) => {
+                      if (tile.value === 0) return null;
 
-                  const fontSizeClass =
-                    currentGridSize === 3
-                      ? 'text-xl sm:text-3xl font-black'
-                      : currentGridSize === 4
-                      ? 'text-lg sm:text-2xl font-black'
-                      : 'text-base sm:text-xl font-black';
+                      const row = Math.floor(idx / cols);
+                      const col = idx % cols;
+                      const isTarget = tile.isTargetNumber;
+                      const isCorrectPosition = isTarget && idx === tile.value - 1;
+                      const isLevel0 = selectedLevel.id === 0;
+                      const tileStyle = isLevel0 ? getLevel0TileStyle(tile.value, cols, rows) : {};
 
-                  return (
-                    <div
-                      key={tile.id || `mp-tile-${tile.value}`}
-                      className="absolute p-1 sm:p-1.5 tile-slide-transition"
-                      style={{
-                        width: `${percent}%`,
-                        height: `${percent}%`,
-                        left: `${col * percent}%`,
-                        top: `${row * percent}%`,
-                      }}
-                    >
-                      <button
-                        disabled={isFinished}
-                        onClick={() => handleTileClick(idx)}
-                        className={`w-full h-full rounded-2xl sm:rounded-3xl border-3 sm:border-4 flex items-center justify-center font-black transition-transform duration-150 transform active:scale-95 shadow-md cursor-pointer ${fontSizeClass} ${
-                          isCorrectPosition
-                            ? 'bg-emerald-400 border-emerald-600 text-white ring-2 ring-emerald-300'
-                            : isTarget
-                            ? 'bg-amber-400 border-amber-600 text-amber-950 hover:bg-amber-300'
-                            : 'bg-white border-amber-300 text-slate-700 hover:bg-amber-50'
-                        }`}
-                      >
-                        {tile.value}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
+                      const fontSizeClass =
+                        cols === 3 && rows === 2
+                          ? 'text-2xl sm:text-4xl font-black'
+                          : cols === 3
+                          ? 'text-xl sm:text-3xl font-black'
+                          : cols === 4
+                          ? 'text-lg sm:text-2xl font-black'
+                          : 'text-base sm:text-xl font-black';
+
+                      return (
+                        <div
+                          key={tile.id || `mp-tile-${tile.value}`}
+                          className={`absolute tile-slide-transition ${isLevel0 ? 'p-0.5' : 'p-1 sm:p-1.5'}`}
+                          style={{
+                            width: `${colPercent}%`,
+                            height: `${rowPercent}%`,
+                            left: `${col * colPercent}%`,
+                            top: `${row * rowPercent}%`,
+                          }}
+                        >
+                          <button
+                            disabled={isFinished}
+                            onClick={() => handleTileClick(idx)}
+                            style={tileStyle}
+                            className={`w-full h-full flex flex-col items-center justify-center font-black transition-transform duration-150 transform active:scale-95 shadow-md cursor-pointer relative overflow-hidden ${fontSizeClass} ${
+                              isLevel0
+                                ? isCorrectPosition
+                                  ? 'rounded-lg sm:rounded-xl border-2 border-emerald-500 ring-2 ring-emerald-400 shadow-md'
+                                  : 'rounded-lg sm:rounded-xl border-2 border-amber-500/80 ring-1 ring-amber-300/60'
+                                : isCorrectPosition
+                                ? 'rounded-2xl sm:rounded-3xl bg-emerald-400 border-3 sm:border-4 border-emerald-600 text-white ring-2 ring-emerald-300'
+                                : isTarget
+                                ? 'rounded-2xl sm:rounded-3xl bg-amber-400 border-3 sm:border-4 border-amber-600 text-amber-950 hover:bg-amber-300'
+                                : 'rounded-2xl sm:rounded-3xl bg-white border-3 sm:border-4 border-amber-300 text-slate-700 hover:bg-amber-50'
+                            }`}
+                          >
+                            {isLevel0 ? (
+                              <div className="w-full h-full relative flex items-center justify-center overflow-hidden">
+                                <div className={`absolute inset-0 transition-colors ${
+                                  isCorrectPosition ? 'bg-emerald-500/10' : 'bg-black/15'
+                                }`} />
+                                <span className={`${fontSizeClass} font-black text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)] z-10 select-none scale-110`}>
+                                  {tile.value}
+                                </span>
+                                <div className={`absolute top-1 left-1 px-1.5 py-0.5 rounded-md text-xs font-black shadow-md border z-10 ${
+                                  isCorrectPosition
+                                    ? 'bg-emerald-600 text-white border-emerald-400'
+                                    : 'bg-amber-500 text-amber-950 border-amber-300'
+                                }`}>
+                                  #{tile.value}
+                                </div>
+                                {isCorrectPosition && (
+                                  <div className="absolute top-1 right-1 bg-emerald-500 text-white rounded-full p-0.5 shadow-md border border-white z-10">
+                                    <Check className="w-3.5 h-3.5" />
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              tile.value
+                            )}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()
             )}
           </div>
 

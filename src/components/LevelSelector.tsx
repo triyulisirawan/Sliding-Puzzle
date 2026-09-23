@@ -39,7 +39,7 @@ export const LevelSelector: React.FC<LevelSelectorProps> = ({
           </h2>
 
           <p className="text-sm sm:text-base font-bold text-amber-900/90 leading-relaxed">
-            Pilih level favoritmu secara bebas! Mulai dari Level 1 (3x3: urutkan 1-8), Level 2 (4x4: urutkan 1-15), hingga Level 3 (5x5: urutkan 1-24)!
+            Pilih level favoritmu secara bebas! Mulai dari Level 0 (3x2: urutkan 1-5), Level 1 (3x3: urutkan 1-8), Level 2 (4x4: urutkan 1-15), hingga Level 3 (5x5: urutkan 1-24)!
           </p>
 
           <div className="pt-2 flex flex-wrap gap-3">
@@ -77,7 +77,7 @@ export const LevelSelector: React.FC<LevelSelectorProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {GAME_LEVELS.map((level) => {
             const starsEarned = levelStars[level.id] || 0;
 
@@ -115,7 +115,7 @@ export const LevelSelector: React.FC<LevelSelectorProps> = ({
                     {level.subtitle}
                   </p>
                   <div className="inline-block mt-1 bg-white/60 border border-slate-300 rounded-lg px-2 py-0.5 text-[11px] font-black text-slate-700">
-                    Grid {level.gridSize}x{level.gridSize} • Urutkan {level.targetNumbersCount} Angka
+                    Grid {level.gridCols || level.gridSize}x{level.gridRows || level.gridSize} • Urutkan {level.targetNumbersCount} Angka
                   </div>
                 </div>
 

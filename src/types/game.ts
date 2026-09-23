@@ -4,7 +4,9 @@ export interface GameLevelConfig {
   subtitle: string;
   badge: string;
   gridSize: number; // e.g. 3 for 3x3, 4 for 4x4, 5 for 5x5
-  targetNumbersCount: number; // e.g. 8 for 3x3, 15 for 4x4, 24 for 5x5
+  gridCols?: number; // e.g. 3 for 3x2 or 3x3
+  gridRows?: number; // e.g. 2 for 3x2
+  targetNumbersCount: number; // e.g. 5 for Level 0, 8 for Level 1, 15 for Level 2, 24 for Level 3
   themeColor: string;
   cardBg: string;
   borderBg: string;
@@ -69,6 +71,14 @@ export interface MultiplayerRoomState {
   createdAt: string;
 }
 
+export const LEVEL_0_MASCOTS: Record<number, { emoji: string; name: string; color: string }> = {
+  1: { emoji: '🦖', name: 'Dino Rex', color: 'from-emerald-400 to-teal-500' },
+  2: { emoji: '🦁', name: 'Singa Lucu', color: 'from-amber-400 to-orange-400' },
+  3: { emoji: '🐸', name: 'Katak Ceria', color: 'from-green-400 to-emerald-500' },
+  4: { emoji: '🐝', name: 'Lebah Madu', color: 'from-yellow-300 to-amber-500' },
+  5: { emoji: '🐞', name: 'Kumbang Kece', color: 'from-rose-400 to-red-500' },
+};
+
 export const AVATARS = [
   { id: 'rabbit', emoji: '🐰', name: 'Kelinci Ceria', color: 'bg-pink-100 text-pink-700 border-pink-300' },
   { id: 'cat', emoji: '🐱', name: 'Kucing Imut', color: 'bg-amber-100 text-amber-700 border-amber-300' },
@@ -82,11 +92,29 @@ export const AVATARS = [
 
 export const GAME_LEVELS: GameLevelConfig[] = [
   {
+    id: 0,
+    title: 'Level 0: Urutkan Pemula',
+    subtitle: 'Kotak 2x2 Singa (1-3) & 3x2 Gajah (1-5)',
+    badge: '🌱 Pemula 2x2 / 3x2',
+    gridSize: 3,
+    gridCols: 3,
+    gridRows: 2,
+    targetNumbersCount: 5,
+    themeColor: 'from-emerald-400 to-teal-500',
+    cardBg: 'bg-emerald-50 border-emerald-200',
+    borderBg: 'border-emerald-400',
+    minMovesFor3Stars: 10,
+    targetTimeSeconds: 40,
+    unlockedByDefault: true,
+  },
+  {
     id: 1,
     title: 'Level 1: Urutkan 1 sampai 8',
     subtitle: 'Kotak 3x3 Klasik (Urutkan angka 1-8)',
     badge: '🧩 Klasik 3x3',
-    gridSize: 3, // 3x3 grid (9 cells total: 1..8 + empty slot)
+    gridSize: 3,
+    gridCols: 3,
+    gridRows: 3,
     targetNumbersCount: 8,
     themeColor: 'from-amber-400 to-orange-500',
     cardBg: 'bg-amber-50 border-amber-200',
@@ -100,7 +128,9 @@ export const GAME_LEVELS: GameLevelConfig[] = [
     title: 'Level 2: Urutkan 1 sampai 15',
     subtitle: 'Kotak 4x4 Tantangan (Urutkan angka 1-15)',
     badge: '🚀 Tantangan 4x4',
-    gridSize: 4, // 4x4 grid (16 cells total: 1..15 + empty slot)
+    gridSize: 4,
+    gridCols: 4,
+    gridRows: 4,
     targetNumbersCount: 15,
     themeColor: 'from-sky-400 to-blue-500',
     cardBg: 'bg-sky-50 border-sky-200',
@@ -114,7 +144,9 @@ export const GAME_LEVELS: GameLevelConfig[] = [
     title: 'Level 3: Urutkan 1 sampai 24',
     subtitle: 'Kotak 5x5 Tantangan (Urutkan angka 1-24)',
     badge: '🔥 Master 5x5',
-    gridSize: 5, // 5x5 grid (25 cells total: 1..24 + empty slot)
+    gridSize: 5,
+    gridCols: 5,
+    gridRows: 5,
     targetNumbersCount: 24,
     themeColor: 'from-purple-400 to-indigo-500',
     cardBg: 'bg-purple-50 border-purple-200',

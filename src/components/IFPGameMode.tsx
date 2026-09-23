@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { collection, addDoc } from 'firebase/firestore';
 import { Play, RotateCcw, Trophy, Users, ArrowLeft, Award, Sparkles, Check, Clock } from 'lucide-react';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { GAME_LEVELS, GameLevelConfig, PlayerProfile, TileItem } from '../types/game';
+import { GAME_LEVELS, GameLevelConfig, PlayerProfile, TileItem, LEVEL_0_MASCOTS } from '../types/game';
+import { getLevel0TileStyle } from '../utils/level0Picture';
 import {
   generateSolvableBoard,
   getMovableTileIndices,
@@ -105,7 +106,9 @@ export const IFPGameMode: React.FC<IFPGameModeProps> = ({ currentUser, onBack })
 
     const board = targetPlayer.board;
     const emptyIdx = board.findIndex((t) => t.value === 0);
-    const movables = getMovableTileIndices(emptyIdx, selectedLevel.gridSize);
+    const cols = selectedLevel.gridCols || selectedLevel.gridSize;
+    const rows = selectedLevel.gridRows || selectedLevel.gridSize;
+    const movables = getMovableTileIndices(emptyIdx, cols, rows);
 
     if (movables.includes(clickedIdx)) {
       soundManager.playSlide();
@@ -457,35 +460,60 @@ export const IFPGameMode: React.FC<IFPGameModeProps> = ({ currentUser, onBack })
                     {p.board.map((tile, tIdx) => {
                       if (tile.value === 0) return null;
 
-                      const row = Math.floor(tIdx / selectedLevel.gridSize);
-                      const col = tIdx % selectedLevel.gridSize;
-                      const percent = 100 / selectedLevel.gridSize;
+                      const cols = selectedLevel.gridCols || selectedLevel.gridSize;
+                      const rows = selectedLevel.gridRows || selectedLevel.gridSize;
+                      const row = Math.floor(tIdx / cols);
+                      const col = tIdx % cols;
+                      const colPercent = 100 / cols;
+                      const rowPercent = 100 / rows;
                       const isTarget = tile.isTargetNumber;
                       const isCorrectPos = isTarget && tIdx === tile.value - 1;
+                      const mascot = selectedLevel.id === 0 ? LEVEL_0_MASCOTS[tile.value] : null;
+                      const isLevel0 = selectedLevel.id === 0;
+                      const tileStyle = isLevel0 ? getLevel0TileStyle(tile.value, cols, rows) : {};
 
                       return (
                         <div
                           key={tile.id || `ifp-tile-${p.id}-${tile.value}`}
-                          className="absolute p-1 tile-slide-transition"
+                          className={`absolute tile-slide-transition ${isLevel0 ? 'p-0.5' : 'p-1'}`}
                           style={{
-                            width: `${percent}%`,
-                            height: `${percent}%`,
-                            left: `${col * percent}%`,
-                            top: `${row * percent}%`,
+                            width: `${colPercent}%`,
+                            height: `${rowPercent}%`,
+                            left: `${col * colPercent}%`,
+                            top: `${row * rowPercent}%`,
                           }}
                         >
                           <button
                             disabled={p.isFinished}
                             onClick={() => handleTileClick(p.id, tIdx)}
-                            className={`w-full h-full rounded-xl border-2 sm:border-3 flex items-center justify-center font-black text-sm sm:text-base md:text-lg transition-transform duration-150 transform active:scale-95 shadow-sm touch-manipulation cursor-pointer ${
-                              isCorrectPos
-                                ? 'bg-emerald-400 border-emerald-600 text-white'
+                            style={tileStyle}
+                            className={`w-full h-full flex items-center justify-center font-black text-sm sm:text-base md:text-lg transition-transform duration-150 transform active:scale-95 shadow-sm touch-manipulation cursor-pointer relative overflow-hidden ${
+                              isLevel0
+                                ? isCorrectPos
+                                  ? 'rounded-lg border-2 border-emerald-500 ring-2 ring-emerald-400'
+                                  : 'rounded-lg border-2 border-amber-500/80 ring-1 ring-amber-300/60'
+                                : isCorrectPos
+                                ? 'rounded-xl border-2 sm:border-3 bg-emerald-400 border-emerald-600 text-white'
                                 : isTarget
-                                ? 'bg-amber-400 border-amber-600 text-amber-950 hover:bg-amber-300'
-                                : 'bg-white border-amber-300 text-slate-700'
+                                ? 'rounded-xl border-2 sm:border-3 bg-amber-400 border-amber-600 text-amber-950 hover:bg-amber-300'
+                                : 'rounded-xl border-2 sm:border-3 bg-white border-amber-300 text-slate-700'
                             }`}
                           >
-                            {tile.value}
+                            {isLevel0 ? (
+                              <div className="w-full h-full relative flex items-center justify-center overflow-hidden">
+                                <div className={`absolute inset-0 transition-colors ${
+                                  isCorrectPos ? 'bg-emerald-500/10' : 'bg-black/15'
+                                }`} />
+                                <span className="text-xl sm:text-2xl font-black text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)] z-10 select-none">
+                                  {tile.value}
+                                </span>
+                                <div className="absolute top-0.5 left-0.5 bg-black/60 text-white px-1 py-0.2 rounded-md text-[9px] font-black z-10">
+                                  #{tile.value}
+                                </div>
+                              </div>
+                            ) : (
+                              tile.value
+                            )}
                           </button>
                         </div>
                       );
