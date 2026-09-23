@@ -429,36 +429,65 @@ export const IFPGameMode: React.FC<IFPGameModeProps> = ({ currentUser, onBack })
                   />
                 </div>
 
-                {/* Interactive Touch Puzzle Grid */}
+                {/* Interactive Touch Puzzle Grid with Smooth Animated Sliding Tiles */}
                 <div className="bg-amber-200/80 border-3 border-amber-500 rounded-2xl p-2 shadow-inner flex justify-center items-center my-auto min-h-[220px]">
-                  <div
-                    className="grid gap-1.5 w-full"
-                    style={{
-                      gridTemplateColumns: `repeat(${selectedLevel.gridSize}, minmax(0, 1fr))`,
-                    }}
-                  >
+                  <div className="relative aspect-square w-full max-w-[280px]">
+                    {/* Static Background Grid Slots */}
+                    {Array.from({ length: selectedLevel.gridSize * selectedLevel.gridSize }).map((_, slotIdx) => {
+                      const r = Math.floor(slotIdx / selectedLevel.gridSize);
+                      const c = slotIdx % selectedLevel.gridSize;
+                      const percent = 100 / selectedLevel.gridSize;
+                      return (
+                        <div
+                          key={`ifp-slot-${r}-${c}`}
+                          className="absolute p-1"
+                          style={{
+                            width: `${percent}%`,
+                            height: `${percent}%`,
+                            left: `${c * percent}%`,
+                            top: `${r * percent}%`,
+                          }}
+                        >
+                          <div className="w-full h-full rounded-xl bg-amber-300/40 border border-amber-400/50 shadow-inner" />
+                        </div>
+                      );
+                    })}
+
+                    {/* Interactive Sliding Tiles */}
                     {p.board.map((tile, tIdx) => {
-                      const isEmpty = tile.value === 0;
+                      if (tile.value === 0) return null;
+
+                      const row = Math.floor(tIdx / selectedLevel.gridSize);
+                      const col = tIdx % selectedLevel.gridSize;
+                      const percent = 100 / selectedLevel.gridSize;
                       const isTarget = tile.isTargetNumber;
                       const isCorrectPos = isTarget && tIdx === tile.value - 1;
 
                       return (
-                        <button
-                          key={tile.id || `ifp-tile-${p.id}-${tIdx}`}
-                          disabled={isEmpty || p.isFinished}
-                          onClick={() => handleTileClick(p.id, tIdx)}
-                          className={`aspect-square rounded-xl border-2 sm:border-3 flex items-center justify-center font-black text-sm sm:text-base md:text-lg transition-all transform active:scale-95 shadow-sm touch-manipulation ${
-                            isEmpty
-                              ? 'bg-amber-300/40 border-amber-400/50 shadow-inner'
-                              : isCorrectPos
-                              ? 'bg-emerald-400 border-emerald-600 text-white'
-                              : isTarget
-                              ? 'bg-amber-400 border-amber-600 text-amber-950 hover:bg-amber-300'
-                              : 'bg-white border-amber-300 text-slate-700'
-                          }`}
+                        <div
+                          key={tile.id || `ifp-tile-${p.id}-${tile.value}`}
+                          className="absolute p-1 tile-slide-transition"
+                          style={{
+                            width: `${percent}%`,
+                            height: `${percent}%`,
+                            left: `${col * percent}%`,
+                            top: `${row * percent}%`,
+                          }}
                         >
-                          {!isEmpty && tile.value}
-                        </button>
+                          <button
+                            disabled={p.isFinished}
+                            onClick={() => handleTileClick(p.id, tIdx)}
+                            className={`w-full h-full rounded-xl border-2 sm:border-3 flex items-center justify-center font-black text-sm sm:text-base md:text-lg transition-transform duration-150 transform active:scale-95 shadow-sm touch-manipulation cursor-pointer ${
+                              isCorrectPos
+                                ? 'bg-emerald-400 border-emerald-600 text-white'
+                                : isTarget
+                                ? 'bg-amber-400 border-amber-600 text-amber-950 hover:bg-amber-300'
+                                : 'bg-white border-amber-300 text-slate-700'
+                            }`}
+                          >
+                            {tile.value}
+                          </button>
+                        </div>
                       );
                     })}
                   </div>

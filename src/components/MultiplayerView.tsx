@@ -754,8 +754,8 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
             </div>
           </div>
 
-          {/* Interactive Puzzle Board */}
-          <div className="bg-amber-200/80 border-4 border-amber-600 rounded-3xl p-4 shadow-xl max-w-xl mx-auto flex justify-center">
+          {/* Interactive Puzzle Board with Smooth Animated Sliding Tiles */}
+          <div className="bg-amber-200/80 border-4 border-amber-600 rounded-3xl p-3 sm:p-4 shadow-xl max-w-xl mx-auto flex justify-center">
             {board.length === 0 ? (
               <div className="text-center p-8 text-amber-950 font-black">
                 <div className="w-8 h-8 border-4 border-amber-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
@@ -763,14 +763,39 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
               </div>
             ) : (
               <div
-                className="grid gap-2 sm:gap-3 w-full"
+                className="relative aspect-square w-full"
                 style={{
-                  gridTemplateColumns: `repeat(${currentGridSize}, minmax(0, 1fr))`,
-                  maxWidth: currentGridSize === 3 ? '340px' : currentGridSize === 4 ? '400px' : '100%',
+                  maxWidth: currentGridSize === 3 ? '340px' : currentGridSize === 4 ? '400px' : '440px',
                 }}
               >
+                {/* Static Background Grid Slots */}
+                {Array.from({ length: currentGridSize * currentGridSize }).map((_, slotIdx) => {
+                  const r = Math.floor(slotIdx / currentGridSize);
+                  const c = slotIdx % currentGridSize;
+                  const percent = 100 / currentGridSize;
+                  return (
+                    <div
+                      key={`mp-slot-${r}-${c}`}
+                      className="absolute p-1 sm:p-1.5"
+                      style={{
+                        width: `${percent}%`,
+                        height: `${percent}%`,
+                        left: `${c * percent}%`,
+                        top: `${r * percent}%`,
+                      }}
+                    >
+                      <div className="w-full h-full rounded-2xl sm:rounded-3xl bg-amber-300/40 border-2 border-amber-400/50 shadow-inner" />
+                    </div>
+                  );
+                })}
+
+                {/* Interactive Sliding Tiles */}
                 {board.map((tile, idx) => {
-                  const isEmpty = tile.value === 0;
+                  if (tile.value === 0) return null;
+
+                  const row = Math.floor(idx / currentGridSize);
+                  const col = idx % currentGridSize;
+                  const percent = 100 / currentGridSize;
                   const isTarget = tile.isTargetNumber;
                   const isCorrectPosition = isTarget && idx === tile.value - 1;
 
@@ -782,22 +807,30 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
                       : 'text-base sm:text-xl font-black';
 
                   return (
-                    <button
-                      key={tile.id || `mp-tile-${idx}`}
-                      disabled={isEmpty || isFinished}
-                      onClick={() => handleTileClick(idx)}
-                      className={`relative aspect-square rounded-2xl border-3 sm:border-4 flex items-center justify-center font-black transition-all transform active:scale-95 shadow-md ${fontSizeClass} ${
-                        isEmpty
-                          ? 'bg-amber-300/40 border-amber-400/50 shadow-inner'
-                          : isCorrectPosition
-                          ? 'bg-emerald-400 border-emerald-600 text-white ring-2 ring-emerald-300'
-                          : isTarget
-                          ? 'bg-amber-400 border-amber-600 text-amber-950 hover:bg-amber-300'
-                          : 'bg-white border-amber-300 text-slate-700 hover:bg-amber-50'
-                      }`}
+                    <div
+                      key={tile.id || `mp-tile-${tile.value}`}
+                      className="absolute p-1 sm:p-1.5 tile-slide-transition"
+                      style={{
+                        width: `${percent}%`,
+                        height: `${percent}%`,
+                        left: `${col * percent}%`,
+                        top: `${row * percent}%`,
+                      }}
                     >
-                      {!isEmpty && tile.value}
-                    </button>
+                      <button
+                        disabled={isFinished}
+                        onClick={() => handleTileClick(idx)}
+                        className={`w-full h-full rounded-2xl sm:rounded-3xl border-3 sm:border-4 flex items-center justify-center font-black transition-transform duration-150 transform active:scale-95 shadow-md cursor-pointer ${fontSizeClass} ${
+                          isCorrectPosition
+                            ? 'bg-emerald-400 border-emerald-600 text-white ring-2 ring-emerald-300'
+                            : isTarget
+                            ? 'bg-amber-400 border-amber-600 text-amber-950 hover:bg-amber-300'
+                            : 'bg-white border-amber-300 text-slate-700 hover:bg-amber-50'
+                        }`}
+                      >
+                        {tile.value}
+                      </button>
+                    </div>
                   );
                 })}
               </div>

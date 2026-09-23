@@ -232,17 +232,42 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         </div>
       </div>
 
-      {/* Puzzle Board Container */}
-      <div className="bg-amber-200/80 border-4 border-amber-600 rounded-3xl p-3 sm:p-5 shadow-xl flex justify-center">
+      {/* Puzzle Board Container with Smooth Animated Sliding Tiles */}
+      <div className="bg-amber-200/80 border-4 border-amber-600 rounded-3xl p-3 sm:p-4 shadow-xl flex justify-center">
         <div
-          className="grid gap-2 sm:gap-3 w-full"
+          className="relative aspect-square w-full"
           style={{
-            gridTemplateColumns: `repeat(${level.gridSize}, minmax(0, 1fr))`,
-            maxWidth: level.gridSize === 2 ? '300px' : level.gridSize === 3 ? '360px' : '100%',
+            maxWidth: level.gridSize === 2 ? '300px' : level.gridSize === 3 ? '360px' : '440px',
           }}
         >
+          {/* Static Background Grid Slots */}
+          {Array.from({ length: level.gridSize * level.gridSize }).map((_, slotIdx) => {
+            const r = Math.floor(slotIdx / level.gridSize);
+            const c = slotIdx % level.gridSize;
+            const percent = 100 / level.gridSize;
+            return (
+              <div
+                key={`slot-${r}-${c}`}
+                className="absolute p-1 sm:p-1.5"
+                style={{
+                  width: `${percent}%`,
+                  height: `${percent}%`,
+                  left: `${c * percent}%`,
+                  top: `${r * percent}%`,
+                }}
+              >
+                <div className="w-full h-full rounded-2xl sm:rounded-3xl bg-amber-300/40 border-2 border-amber-400/50 shadow-inner" />
+              </div>
+            );
+          })}
+
+          {/* Interactive Sliding Tiles */}
           {board.map((tile, idx) => {
-            const isEmpty = tile.value === 0;
+            if (tile.value === 0) return null; // Empty cell rendered by static background
+
+            const row = Math.floor(idx / level.gridSize);
+            const col = idx % level.gridSize;
+            const percent = 100 / level.gridSize;
             const isTarget = tile.isTargetNumber;
             const isCorrectPosition = isTarget && idx === tile.value - 1;
             const isHint = hintIndex === idx;
@@ -258,33 +283,36 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                 : 'text-xl sm:text-3xl font-black';
 
             return (
-              <button
-                key={tile.id || `idx-${idx}`}
-                disabled={isEmpty}
-                onClick={() => handleTileClick(idx)}
-                className={`relative aspect-square rounded-2xl sm:rounded-3xl border-3 sm:border-4 flex flex-col items-center justify-center transition-all transform active:scale-95 shadow-md select-none focus:outline-none ${
-                  isEmpty
-                    ? 'bg-amber-300/40 border-amber-400/50 shadow-inner'
-                    : isCorrectPosition
-                    ? 'bg-emerald-400 border-emerald-600 text-white ring-2 ring-emerald-300'
-                    : isTarget
-                    ? 'bg-amber-400 border-amber-600 text-amber-950 hover:bg-amber-300'
-                    : 'bg-white border-amber-300 text-slate-700 hover:bg-amber-50'
-                } ${isHint ? 'ring-4 ring-purple-500 scale-105 animate-bounce' : ''}`}
+              <div
+                key={tile.id || `tile-num-${tile.value}`}
+                className="absolute p-1 sm:p-1.5 tile-slide-transition"
+                style={{
+                  width: `${percent}%`,
+                  height: `${percent}%`,
+                  left: `${col * percent}%`,
+                  top: `${row * percent}%`,
+                }}
               >
-                {!isEmpty && (
-                  <>
-                    <span className={fontSizeClass}>{tile.value}</span>
+                <button
+                  onClick={() => handleTileClick(idx)}
+                  className={`w-full h-full rounded-2xl sm:rounded-3xl border-3 sm:border-4 flex flex-col items-center justify-center font-black transition-transform duration-150 transform active:scale-95 shadow-md select-none focus:outline-none cursor-pointer ${
+                    isCorrectPosition
+                      ? 'bg-emerald-400 border-emerald-600 text-white ring-2 ring-emerald-300'
+                      : isTarget
+                      ? 'bg-amber-400 border-amber-600 text-amber-950 hover:bg-amber-300'
+                      : 'bg-white border-amber-300 text-slate-700 hover:bg-amber-50'
+                  } ${isHint ? 'ring-4 ring-purple-500 scale-105 animate-bounce' : ''}`}
+                >
+                  <span className={fontSizeClass}>{tile.value}</span>
 
-                    {/* Green checkmark badge if correctly placed in target position */}
-                    {isCorrectPosition && (
-                      <div className="absolute top-1 right-1 bg-white text-emerald-600 rounded-full p-0.5 shadow-xs">
-                        <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                      </div>
-                    )}
-                  </>
-                )}
-              </button>
+                  {/* Green checkmark badge if correctly placed in target position */}
+                  {isCorrectPosition && (
+                    <div className="absolute top-1 right-1 bg-white text-emerald-600 rounded-full p-0.5 shadow-xs">
+                      <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    </div>
+                  )}
+                </button>
+              </div>
             );
           })}
         </div>
