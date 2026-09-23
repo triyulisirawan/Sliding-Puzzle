@@ -17,25 +17,25 @@ export const PRESET_YOUTUBE_TRACKS = [
   {
     title: '🎶 Musik Belajar & Santai TK/SD',
     url: 'https://www.youtube.com/watch?v=eqwR1xWU0FQ&t=68s',
-    id: '5qap5aO4i9A',
+    id: 'eqwR1xWU0FQ',
     description: 'Lofi cilik lembut untuk melatih konsentrasi',
   },
   {
     title: '🌸 Musik Klasik Mozart Anak Pintar',
     url: 'https://www.youtube.com/watch?v=Ex_aWeTDwNA',
-    id: 'jgpJVI3tDbY',
+    id: 'Ex_aWeTDwNA',
     description: 'Instrumen otak kanan untuk kecerdasan & fokus',
   },
   {
     title: '🌳 Suara Alam & Seruling Ceria',
     url: 'https://www.youtube.com/watch?v=h_YQgl4KZ_E',
-    id: 'eKFTSSKCzWA',
+    id: 'h_YQgl4KZ_E',
     description: 'Suara musik ceria kelas',
   },
   {
     title: '🧩 Latar Instrumental Ceria',
     url: 'https://www.youtube.com/watch?v=68jD0M9pb4c',
-    id: '1ZYbU874c4E',
+    id: '68jD0M9pb4c',
     description: 'Musik riang penunjang aktivitas permainan',
   },
 ];

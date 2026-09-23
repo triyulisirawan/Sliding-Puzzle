@@ -6,8 +6,11 @@ import {
   limit,
   onSnapshot,
   where,
+  getDocs,
+  deleteDoc,
+  doc,
 } from 'firebase/firestore';
-import { Trophy, X, Medal, Filter, Sparkles, RefreshCw } from 'lucide-react';
+import { Trophy, X, Medal, Filter, Sparkles, RefreshCw, Trash2 } from 'lucide-react';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { LeaderboardRecord, PlayerProfile, GAME_LEVELS } from '../types/game';
 import { soundManager } from '../lib/sound';
@@ -26,9 +29,45 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
   const [selectedLevelFilter, setSelectedLevelFilter] = useState<number>(0); // 0 = All levels
   const [records, setRecords] = useState<LeaderboardRecord[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isCleaning, setIsCleaning] = useState<boolean>(false);
+
+  // Auto-clean any legacy 2x2 and legacy Level 2 (3x3) records from Firestore
+  const cleanLegacyRecordsFromFirestore = async () => {
+    try {
+      setIsCleaning(true);
+      const path = 'leaderboard';
+      
+      // Query 1: gridSize == 2
+      const q1 = query(collection(db, path), where('gridSize', '==', 2));
+      const snap1 = await getDocs(q1);
+
+      // Query 2: level == 2 AND gridSize == 3
+      const q2 = query(collection(db, path), where('level', '==', 2), where('gridSize', '==', 3));
+      const snap2 = await getDocs(q2);
+
+      const deletePromises: Promise<void>[] = [];
+      snap1.forEach((docSnap) => {
+        deletePromises.push(deleteDoc(doc(db, path, docSnap.id)).catch(() => {}));
+      });
+      snap2.forEach((docSnap) => {
+        deletePromises.push(deleteDoc(doc(db, path, docSnap.id)).catch(() => {}));
+      });
+
+      if (deletePromises.length > 0) {
+        await Promise.allSettled(deletePromises);
+      }
+    } catch {
+      // Silently ignore if user is unauthenticated or rules restrict bulk delete
+    } finally {
+      setIsCleaning(false);
+    }
+  };
 
   useEffect(() => {
     if (!isOpen) return;
+
+    // Run legacy cleanup whenever leaderboard opens
+    cleanLegacyRecordsFromFirestore();
 
     setIsLoading(true);
     const path = 'leaderboard';
@@ -52,18 +91,27 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
           const list: LeaderboardRecord[] = [];
           snapshot.forEach((docSnap) => {
             const data = docSnap.data();
-            list.push({
-              id: docSnap.id,
-              userId: data.userId || '',
-              playerName: data.playerName || 'Pemain Cilik',
-              playerAvatar: data.playerAvatar || '🐰',
-              level: data.level || 1,
-              gridSize: data.gridSize || 4,
-              score: data.score || 0,
-              moves: data.moves || 0,
-              timeSeconds: data.timeSeconds || 0,
-              createdAt: data.createdAt || '',
-            });
+            const recLevel = data.level || 1;
+            const gSize = data.gridSize || 4;
+
+            const isLegacy2x2 = gSize <= 2;
+            const isLegacyLvl2_3x3 = recLevel === 2 && gSize === 3;
+
+            // Exclude old 2x2 records and old Level 2 (3x3) records
+            if (!isLegacy2x2 && !isLegacyLvl2_3x3) {
+              list.push({
+                id: docSnap.id,
+                userId: data.userId || '',
+                playerName: data.playerName || 'Pemain Cilik',
+                playerAvatar: data.playerAvatar || '🐰',
+                level: recLevel,
+                gridSize: gSize,
+                score: data.score || 0,
+                moves: data.moves || 0,
+                timeSeconds: data.timeSeconds || 0,
+                createdAt: data.createdAt || '',
+              });
+            }
           });
           setRecords(list);
           setIsLoading(false);
