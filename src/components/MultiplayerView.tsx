@@ -17,10 +17,7 @@ import {
   Zap,
   Bot,
   ArrowLeft,
-  RotateCcw,
   Sparkles,
-  Trophy,
-  MessageSquare,
   Timer,
   Footprints,
 } from 'lucide-react';
@@ -74,25 +71,31 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
           const data = docSnap.data();
           setRoomData(data);
 
+          // Sync current level from room data
+          const roomLvl = GAME_LEVELS.find((l) => l.id === data.level) || GAME_LEVELS[0];
+          setSelectedLevel(roomLvl);
+
+          // Populate board if board is currently empty and initialBoard exists
+          if (data.initialBoard) {
+            try {
+              const values: number[] = JSON.parse(data.initialBoard);
+              setBoard((prevBoard) => {
+                if (prevBoard.length > 0) return prevBoard; // keep existing board if active
+                return values.map((v, idx) => ({
+                  id: `mp-tile-${idx}-${v}`,
+                  value: v,
+                  correctIndex: v > 0 ? v - 1 : roomLvl.gridSize * roomLvl.gridSize - 1,
+                  isTargetNumber: v >= 1 && v <= roomLvl.targetNumbersCount,
+                }));
+              });
+            } catch (err) {
+              console.error('Error parsing room board:', err);
+            }
+          }
+
           // If room status changes to playing, switch view state
           if (data.status === 'playing' && viewState !== 'playing') {
             setViewState('playing');
-            // Parse initial board if needed
-            if (data.initialBoard) {
-              try {
-                const values: number[] = JSON.parse(data.initialBoard);
-                const levelObj = GAME_LEVELS.find((l) => l.id === data.level) || GAME_LEVELS[0];
-                const parsed = values.map((v, idx) => ({
-                  id: `mp-tile-${idx}-${v}`,
-                  value: v,
-                  correctIndex: v > 0 ? v - 1 : levelObj.gridSize * levelObj.gridSize - 1,
-                  isTargetNumber: v >= 1 && v <= levelObj.targetNumbersCount,
-                }));
-                setBoard(parsed);
-              } catch {
-                // fallback
-              }
-            }
           }
         }
       },
@@ -226,6 +229,25 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
       if (data.status !== 'waiting') {
         alert('Ruang ini sudah penuh atau permainan telah dimulai.');
         return;
+      }
+
+      // Sync level & parse initial board for guest
+      const levelObj = GAME_LEVELS.find((l) => l.id === data.level) || GAME_LEVELS[0];
+      setSelectedLevel(levelObj);
+
+      if (data.initialBoard) {
+        try {
+          const values: number[] = JSON.parse(data.initialBoard);
+          const parsed: TileItem[] = values.map((v, idx) => ({
+            id: `mp-tile-${idx}-${v}`,
+            value: v,
+            correctIndex: v > 0 ? v - 1 : levelObj.gridSize * levelObj.gridSize - 1,
+            isTargetNumber: v >= 1 && v <= levelObj.targetNumbersCount,
+          }));
+          setBoard(parsed);
+        } catch (err) {
+          console.error('Error parsing board on join:', err);
+        }
       }
 
       // Update Guest & set room status to playing
@@ -466,6 +488,7 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
 
   const opponent = getOpponentInfo();
   const myProgress = calculateProgressPercentage(board, selectedLevel.targetNumbersCount);
+  const currentGridSize = roomData?.gridSize || selectedLevel.gridSize;
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-6 animate-fade-in">
@@ -696,43 +719,58 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
             </div>
           </div>
 
-          {/* Puzzle Board */}
-          <div className="bg-amber-200/80 border-4 border-amber-600 rounded-3xl p-4 shadow-xl max-w-xl mx-auto">
-            <div
-              className="grid gap-2"
-              style={{
-                gridTemplateColumns: `repeat(${selectedLevel.gridSize}, minmax(0, 1fr))`,
-              }}
-            >
-              {board.map((tile, idx) => {
-                const isEmpty = tile.value === 0;
-                const isTarget = tile.isTargetNumber;
-                const isCorrectPosition = isTarget && idx === tile.value - 1;
+          {/* Puzzle Board Container */}
+          <div className="bg-amber-200/80 border-4 border-amber-600 rounded-3xl p-4 shadow-xl max-w-xl mx-auto flex justify-center">
+            {board.length === 0 ? (
+              <div className="text-center p-8 text-amber-950 font-black">
+                <div className="w-8 h-8 border-4 border-amber-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                Menyiapkan Papan Permainan...
+              </div>
+            ) : (
+              <div
+                className="grid gap-2 sm:gap-3 w-full"
+                style={{
+                  gridTemplateColumns: `repeat(${currentGridSize}, minmax(0, 1fr))`,
+                  maxWidth: currentGridSize === 2 ? '280px' : currentGridSize === 3 ? '340px' : '100%',
+                }}
+              >
+                {board.map((tile, idx) => {
+                  const isEmpty = tile.value === 0;
+                  const isTarget = tile.isTargetNumber;
+                  const isCorrectPosition = isTarget && idx === tile.value - 1;
 
-                return (
-                  <button
-                    key={tile.id || idx}
-                    disabled={isEmpty || isFinished}
-                    onClick={() => handleTileClick(idx)}
-                    className={`relative aspect-square rounded-2xl border-3 flex items-center justify-center text-xl sm:text-2xl font-black transition-all transform active:scale-95 shadow-md ${
-                      isEmpty
-                        ? 'bg-amber-300/40 border-amber-400/50 shadow-inner'
-                        : isCorrectPosition
-                        ? 'bg-emerald-400 border-emerald-600 text-white'
-                        : isTarget
-                        ? 'bg-amber-400 border-amber-600 text-amber-950'
-                        : 'bg-white border-amber-300 text-slate-700'
-                    }`}
-                  >
-                    {!isEmpty && tile.value}
-                  </button>
-                );
-              })}
-            </div>
+                  const fontSizeClass =
+                    currentGridSize === 2
+                      ? 'text-3xl sm:text-5xl font-black'
+                      : currentGridSize === 3
+                      ? 'text-xl sm:text-3xl font-black'
+                      : 'text-lg sm:text-2xl font-black';
+
+                  return (
+                    <button
+                      key={tile.id || `mp-tile-${idx}`}
+                      disabled={isEmpty || isFinished}
+                      onClick={() => handleTileClick(idx)}
+                      className={`relative aspect-square rounded-2xl border-3 sm:border-4 flex items-center justify-center font-black transition-all transform active:scale-95 shadow-md ${fontSizeClass} ${
+                        isEmpty
+                          ? 'bg-amber-300/40 border-amber-400/50 shadow-inner'
+                          : isCorrectPosition
+                          ? 'bg-emerald-400 border-emerald-600 text-white ring-2 ring-emerald-300'
+                          : isTarget
+                          ? 'bg-amber-400 border-amber-600 text-amber-950 hover:bg-amber-300'
+                          : 'bg-white border-amber-300 text-slate-700 hover:bg-amber-50'
+                      }`}
+                    >
+                      {!isEmpty && tile.value}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Quick Chat Reaction Buttons */}
-          <div className="flex items-center justify-center gap-2">
+          <div className="flex items-center justify-center gap-2 flex-wrap">
             {['Hebat! 👏', 'Ayo! 🚀', 'Hampir Selesai! ⭐', 'Haha! 😄'].map((msg) => (
               <button
                 key={msg}
