@@ -16,25 +16,25 @@ interface YouTubeMusicModalProps {
 export const PRESET_YOUTUBE_TRACKS = [
   {
     title: '🎶 Musik Belajar & Santai TK/SD',
-    url: 'https://www.youtube.com/watch?v=5qap5aO4i9A',
+    url: 'https://www.youtube.com/watch?v=eqwR1xWU0FQ&t=68s',
     id: '5qap5aO4i9A',
     description: 'Lofi cilik lembut untuk melatih konsentrasi',
   },
   {
     title: '🌸 Musik Klasik Mozart Anak Pintar',
-    url: 'https://www.youtube.com/watch?v=jgpJVI3tDbY',
+    url: 'https://www.youtube.com/watch?v=Ex_aWeTDwNA',
     id: 'jgpJVI3tDbY',
     description: 'Instrumen otak kanan untuk kecerdasan & fokus',
   },
   {
     title: '🌳 Suara Alam & Seruling Ceria',
-    url: 'https://www.youtube.com/watch?v=eKFTSSKCzWA',
+    url: 'https://www.youtube.com/watch?v=h_YQgl4KZ_E',
     id: 'eKFTSSKCzWA',
-    description: 'Suara burung dan musik ceria kelas',
+    description: 'Suara musik ceria kelas',
   },
   {
     title: '🧩 Latar Instrumental Ceria',
-    url: 'https://www.youtube.com/watch?v=1ZYbU874c4E',
+    url: 'https://www.youtube.com/watch?v=68jD0M9pb4c',
     id: '1ZYbU874c4E',
     description: 'Musik riang penunjang aktivitas permainan',
   },
