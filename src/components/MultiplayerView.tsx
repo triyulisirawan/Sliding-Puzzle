@@ -8,18 +8,15 @@ import {
   query,
   where,
   getDocs,
-  deleteDoc,
 } from 'firebase/firestore';
 import {
   Users,
   Copy,
   Check,
-  Zap,
   Bot,
   ArrowLeft,
   Sparkles,
-  Timer,
-  Footprints,
+  Youtube,
 } from 'lucide-react';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { GAME_LEVELS, GameLevelConfig, PlayerProfile, TileItem } from '../types/game';
@@ -30,6 +27,7 @@ import {
   calculateProgressPercentage,
 } from '../utils/puzzle';
 import { soundManager } from '../lib/sound';
+import { VictoryYouTubeAudio } from './VictoryYouTubeAudio';
 
 interface MultiplayerViewProps {
   player: PlayerProfile;
@@ -37,7 +35,7 @@ interface MultiplayerViewProps {
 }
 
 export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack }) => {
-  const [viewState, setViewState] = useState<'lobby' | 'creating' | 'joining' | 'matchmaking' | 'playing'>('lobby');
+  const [viewState, setViewState] = useState<'lobby' | 'creating' | 'playing'>('lobby');
   const [roomCodeInput, setRoomCodeInput] = useState('');
   const [copiedCode, setCopiedCode] = useState(false);
   const [selectedLevel, setSelectedLevel] = useState<GameLevelConfig>(GAME_LEVELS[0]);
@@ -54,9 +52,6 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
   const [isFinished, setIsFinished] = useState(false);
   const [chatReaction, setChatReaction] = useState<string | null>(null);
 
-  // Matchmaking Timer
-  const [queueTimer, setQueueTimer] = useState(0);
-  const matchmakingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const botIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Listen to Firestore Room Changes
@@ -129,7 +124,7 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
             return prevRoom;
           }
           // Bot increments progress realistically every 2-3 seconds
-          const inc = Math.floor(Math.random() * 15) + 10;
+          const inc = Math.floor(Math.random() * 12) + 8;
           const nextProg = Math.min(100, currentBotProg + inc);
           const botFinished = nextProg >= 100;
 
@@ -266,91 +261,6 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
     }
   };
 
-  // Quick Online Matchmaking
-  const handleStartMatchmaking = async () => {
-    soundManager.playClick();
-    setViewState('matchmaking');
-    setQueueTimer(0);
-
-    const queueId = `queue_${player.uid}`;
-    try {
-      await setDoc(doc(db, 'matchmaking_queue', queueId), {
-        userId: player.uid,
-        playerName: player.displayName,
-        playerAvatar: player.avatar,
-        level: selectedLevel.id,
-        status: 'waiting',
-        createdAt: new Date().toISOString(),
-      });
-
-      // Search for waiting opponents
-      const q = query(
-        collection(db, 'matchmaking_queue'),
-        where('status', '==', 'waiting')
-      );
-      const snap = await getDocs(q);
-
-      const waitingOpponent = snap.docs.find((d) => d.data().userId !== player.uid);
-
-      if (waitingOpponent) {
-        // Found real opponent!
-        const oppData = waitingOpponent.data();
-        const code = generateRoomCode();
-        const newRoomId = `room_${Date.now()}`;
-        const initialTiles = generateSolvableBoard(selectedLevel, 60);
-
-        await setDoc(doc(db, 'multiplayer_rooms', newRoomId), {
-          roomCode: code,
-          status: 'playing',
-          level: selectedLevel.id,
-          gridSize: selectedLevel.gridSize,
-          maxNumber: selectedLevel.targetNumbersCount,
-          initialBoard: JSON.stringify(initialTiles.map((t) => t.value)),
-          hostId: player.uid,
-          hostName: player.displayName,
-          hostAvatar: player.avatar,
-          hostProgress: 0,
-          hostMoves: 0,
-          hostTime: 0,
-          hostFinished: false,
-          guestId: oppData.userId,
-          guestName: oppData.playerName,
-          guestAvatar: oppData.playerAvatar,
-          guestProgress: 0,
-          guestMoves: 0,
-          guestTime: 0,
-          guestFinished: false,
-          isBotMatch: false,
-          winnerId: '',
-          createdAt: new Date().toISOString(),
-        });
-
-        // Clean up queue
-        await deleteDoc(doc(db, 'matchmaking_queue', queueId));
-
-        setRoomId(newRoomId);
-        setIsHost(true);
-        setBoard(initialTiles);
-        setViewState('playing');
-        return;
-      }
-
-      // Start 8-second countdown timer to spawn AI Bot if no real player joins
-      matchmakingIntervalRef.current = setInterval(() => {
-        setQueueTimer((prev) => {
-          if (prev >= 8) {
-            if (matchmakingIntervalRef.current) clearInterval(matchmakingIntervalRef.current);
-            spawnBotMatch();
-            return prev;
-          }
-          return prev + 1;
-        });
-      }, 1000);
-    } catch (err) {
-      console.error('Matchmaking error:', err);
-    }
-  };
-
   // Spawn Bot Match Fallback
   const spawnBotMatch = async () => {
     const bots = [
@@ -413,6 +323,14 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
         updatedBoard[emptyIdx],
         updatedBoard[clickedIdx],
       ];
+
+      // Check if tile landed in correct spot
+      const movedTileValue = updatedBoard[emptyIdx].value;
+      if (movedTileValue > 0 && movedTileValue <= selectedLevel.targetNumbersCount) {
+        if (emptyIdx === movedTileValue - 1) {
+          soundManager.playCorrectSpot();
+        }
+      }
 
       const newMoves = moves + 1;
       const newProgress = calculateProgressPercentage(updatedBoard, selectedLevel.targetNumbersCount);
@@ -490,8 +408,13 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
   const myProgress = calculateProgressPercentage(board, selectedLevel.targetNumbersCount);
   const currentGridSize = roomData?.gridSize || selectedLevel.gridSize;
 
+  const isGameFinished = isFinished || roomData?.status === 'finished';
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-6 animate-fade-in">
+      {/* YouTube Victory Audio Engine */}
+      <VictoryYouTubeAudio isPlaying={isGameFinished} />
+
       {/* Top Header */}
       <div className="flex items-center justify-between bg-white border-3 border-amber-400 rounded-2xl p-3 shadow-md">
         <button
@@ -521,7 +444,7 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
                 🏠
               </div>
               <h3 className="text-xl font-black text-amber-950">
-                Buat Ruang (Main Saja)
+                Buat Ruang Permainan
               </h3>
               <p className="text-xs font-bold text-amber-900/90 leading-relaxed">
                 Buat ruang permainan baru dan bagikan kode 5-digit ke temanmu untuk bertanding langsung!
@@ -555,18 +478,21 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
             </button>
           </div>
 
-          {/* Join / Matchmaking Card */}
+          {/* Join Room Card */}
           <div className="bg-sky-100 border-4 border-sky-500 rounded-3xl p-6 space-y-5 shadow-xl flex flex-col justify-between">
             <div className="space-y-4">
               <div className="w-12 h-12 bg-sky-400 border-2 border-sky-600 rounded-2xl flex items-center justify-center text-2xl shadow-inner">
-                ⚡
+                🔑
               </div>
               <h3 className="text-xl font-black text-sky-950">
-                Gabung atau Cari Lawan
+                Gabung Ruang Teman
               </h3>
+              <p className="text-xs font-bold text-sky-900/90 leading-relaxed">
+                Masukkan kode ruang yang diberikan oleh temanmu untuk langsung bergabung dan mulai bertanding!
+              </p>
 
               {/* Join Code Input */}
-              <div className="space-y-2">
+              <div className="space-y-2 pt-1">
                 <label className="text-xs font-black text-sky-950 block">Masukkan Kode Ruang Teman:</label>
                 <div className="flex gap-2">
                   <input
@@ -575,30 +501,16 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
                     value={roomCodeInput}
                     onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase())}
                     placeholder="Contoh: TK882"
-                    className="flex-1 bg-white border-2 border-sky-300 focus:border-sky-500 rounded-xl px-3 py-2 font-black uppercase text-sky-950 tracking-wider text-base outline-none"
+                    className="flex-1 bg-white border-2 border-sky-300 focus:border-sky-500 rounded-xl px-3 py-2.5 font-black uppercase text-sky-950 tracking-wider text-base outline-none"
                   />
                   <button
                     onClick={handleJoinRoom}
-                    className="bg-sky-500 hover:bg-sky-400 active:scale-95 border-b-4 border-sky-700 text-white font-black px-4 py-2 rounded-xl text-sm shadow-sm"
+                    className="bg-sky-500 hover:bg-sky-400 active:scale-95 border-b-4 border-sky-700 text-white font-black px-5 py-2.5 rounded-xl text-sm shadow-sm"
                   >
                     Gabung
                   </button>
                 </div>
               </div>
-
-              <div className="relative border-t-2 border-sky-200 my-3 text-center">
-                <span className="bg-sky-100 text-sky-800 text-[10px] font-black px-2 relative -top-2.5">
-                  ATAU
-                </span>
-              </div>
-
-              {/* Matchmaking Button */}
-              <button
-                onClick={handleStartMatchmaking}
-                className="w-full bg-purple-500 hover:bg-purple-400 active:scale-95 border-b-4 border-purple-700 text-white font-black text-base py-3 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2"
-              >
-                <Zap className="w-5 h-5 text-yellow-300" /> Cari Lawan Acak Online
-              </button>
             </div>
           </div>
         </div>
@@ -644,31 +556,6 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
             className="bg-sky-500 hover:bg-sky-400 border-b-4 border-sky-700 text-white font-black px-4 py-2.5 rounded-2xl text-xs shadow-md transition-all flex items-center justify-center gap-2 mx-auto"
           >
             <Bot className="w-4 h-4" /> Teman belum ada? Tantang Bot AI!
-          </button>
-        </div>
-      )}
-
-      {/* Matchmaking Searching State */}
-      {viewState === 'matchmaking' && (
-        <div className="bg-purple-100 border-4 border-purple-500 rounded-3xl p-8 text-center space-y-6 max-w-lg mx-auto shadow-2xl">
-          <div className="w-20 h-20 bg-purple-400 border-4 border-purple-600 rounded-full flex items-center justify-center text-4xl mx-auto animate-bounce">
-            ⚡
-          </div>
-
-          <div className="space-y-2">
-            <h3 className="text-2xl font-black text-purple-950">
-              Mencari Lawan Online...
-            </h3>
-            <p className="text-xs font-bold text-purple-800">
-              Sistem sedang menghubungkanmu dengan pemain lain ({queueTimer}s)
-            </p>
-          </div>
-
-          <button
-            onClick={spawnBotMatch}
-            className="bg-emerald-500 hover:bg-emerald-400 border-b-4 border-emerald-700 text-white font-black px-5 py-3 rounded-2xl text-sm shadow-md transition-all flex items-center justify-center gap-2 mx-auto"
-          >
-            <Bot className="w-5 h-5" /> Main Sekarang Lawan Bot AI 🤖
           </button>
         </div>
       )}
@@ -731,7 +618,7 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
                 className="grid gap-2 sm:gap-3 w-full"
                 style={{
                   gridTemplateColumns: `repeat(${currentGridSize}, minmax(0, 1fr))`,
-                  maxWidth: currentGridSize === 2 ? '280px' : currentGridSize === 3 ? '340px' : '100%',
+                  maxWidth: currentGridSize === 3 ? '340px' : currentGridSize === 4 ? '400px' : '100%',
                 }}
               >
                 {board.map((tile, idx) => {
@@ -740,11 +627,11 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
                   const isCorrectPosition = isTarget && idx === tile.value - 1;
 
                   const fontSizeClass =
-                    currentGridSize === 2
-                      ? 'text-3xl sm:text-5xl font-black'
-                      : currentGridSize === 3
+                    currentGridSize === 3
                       ? 'text-xl sm:text-3xl font-black'
-                      : 'text-lg sm:text-2xl font-black';
+                      : currentGridSize === 4
+                      ? 'text-lg sm:text-2xl font-black'
+                      : 'text-base sm:text-xl font-black';
 
                   return (
                     <button
@@ -793,7 +680,7 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
           )}
 
           {/* Victory / Defeat Overlay Banner */}
-          {(isFinished || roomData?.status === 'finished') && (
+          {isGameFinished && (
             <div className="bg-amber-400 border-4 border-amber-600 rounded-3xl p-6 text-center space-y-4 shadow-2xl animate-fade-in">
               <span className="text-5xl">
                 {roomData?.winnerId === player.uid ? '🏆' : '👏'}
@@ -803,6 +690,11 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
                   ? 'Selamat! Kamu Menang Tandingan ini! 🎉'
                   : `Hebat! ${opponent.name} Menang Pertandingan!`}
               </h3>
+
+              <div className="bg-red-100 border-2 border-red-400 rounded-2xl p-2.5 text-xs font-black text-red-950 flex items-center justify-center gap-2 max-w-xs mx-auto animate-pulse">
+                <Youtube className="w-4 h-4 text-red-600 fill-current shrink-0" />
+                <span>🎶 Memutar Suara Kemenangan YouTube!</span>
+              </div>
 
               <div className="flex justify-center gap-3">
                 <button

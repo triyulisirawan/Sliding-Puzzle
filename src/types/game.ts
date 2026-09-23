@@ -3,8 +3,8 @@ export interface GameLevelConfig {
   title: string;
   subtitle: string;
   badge: string;
-  gridSize: number; // e.g. 2 for 2x2, 3 for 3x3, 4 for 4x4
-  targetNumbersCount: number; // e.g. 3 for 2x2, 8 for 3x3, 15 for 4x4
+  gridSize: number; // e.g. 3 for 3x3, 4 for 4x4, 5 for 5x5
+  targetNumbersCount: number; // e.g. 8 for 3x3, 15 for 4x4, 24 for 5x5
   themeColor: string;
   cardBg: string;
   borderBg: string;
@@ -83,22 +83,8 @@ export const AVATARS = [
 export const GAME_LEVELS: GameLevelConfig[] = [
   {
     id: 1,
-    title: 'Level 1: Urutkan 1, 2, 3',
-    subtitle: 'Kotak 2x2 Pemula (Urutkan 1, 2, 3)',
-    badge: '🌱 Pemula 2x2',
-    gridSize: 2, // 2x2 grid (4 cells total: 1, 2, 3 + empty slot)
-    targetNumbersCount: 3,
-    themeColor: 'from-emerald-400 to-teal-500',
-    cardBg: 'bg-emerald-50 border-emerald-200',
-    borderBg: 'border-emerald-400',
-    minMovesFor3Stars: 6,
-    targetTimeSeconds: 30,
-    unlockedByDefault: true,
-  },
-  {
-    id: 2,
-    title: 'Level 2: Urutkan 1 sampai 8',
-    subtitle: 'Kotak 3x3 Klasik (Urutkan 1-8)',
+    title: 'Level 1: Urutkan 1 sampai 8',
+    subtitle: 'Kotak 3x3 Klasik (Urutkan angka 1-8)',
     badge: '🧩 Klasik 3x3',
     gridSize: 3, // 3x3 grid (9 cells total: 1..8 + empty slot)
     targetNumbersCount: 8,
@@ -110,17 +96,31 @@ export const GAME_LEVELS: GameLevelConfig[] = [
     unlockedByDefault: true,
   },
   {
-    id: 3,
-    title: 'Level 3: Urutkan 1 sampai 15',
-    subtitle: 'Kotak 4x4 Tantangan (Urutkan 1-15)',
+    id: 2,
+    title: 'Level 2: Urutkan 1 sampai 15',
+    subtitle: 'Kotak 4x4 Tantangan (Urutkan angka 1-15)',
     badge: '🚀 Tantangan 4x4',
     gridSize: 4, // 4x4 grid (16 cells total: 1..15 + empty slot)
     targetNumbersCount: 15,
+    themeColor: 'from-sky-400 to-blue-500',
+    cardBg: 'bg-sky-50 border-sky-200',
+    borderBg: 'border-sky-400',
+    minMovesFor3Stars: 45,
+    targetTimeSeconds: 120,
+    unlockedByDefault: true,
+  },
+  {
+    id: 3,
+    title: 'Level 3: Urutkan 1 sampai 24',
+    subtitle: 'Kotak 5x5 Tantangan (Urutkan angka 1-24)',
+    badge: '🔥 Master 5x5',
+    gridSize: 5, // 5x5 grid (25 cells total: 1..24 + empty slot)
+    targetNumbersCount: 24,
     themeColor: 'from-purple-400 to-indigo-500',
     cardBg: 'bg-purple-50 border-purple-200',
     borderBg: 'border-purple-400',
-    minMovesFor3Stars: 45,
-    targetTimeSeconds: 120,
+    minMovesFor3Stars: 80,
+    targetTimeSeconds: 210,
     unlockedByDefault: true,
   },
 ];

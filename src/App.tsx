@@ -10,6 +10,8 @@ import { AvatarSelectorModal } from './components/AvatarSelectorModal';
 import { NameRegistrationModal } from './components/NameRegistrationModal';
 import { MultiplayerView } from './components/MultiplayerView';
 import { HowToPlayModal } from './components/HowToPlayModal';
+import { YouTubeMusicModal } from './components/YouTubeMusicModal';
+import { YouTubePlayerEngine } from './components/YouTubePlayerEngine';
 import { GAME_LEVELS, GameLevelConfig, PlayerProfile } from './types/game';
 import { calculateStarsAndScore } from './utils/puzzle';
 import { soundManager } from './lib/sound';
@@ -31,6 +33,14 @@ export default function App() {
   const [activeView, setActiveView] = useState<'levels' | 'playing' | 'multiplayer'>('levels');
   const [currentLevel, setCurrentLevel] = useState<GameLevelConfig>(GAME_LEVELS[0]);
 
+  // YouTube Background Music State
+  const [youtubeUrl, setYoutubeUrl] = useState<string>(() => {
+    return localStorage.getItem('guru_yt_music_url') || 'https://www.youtube.com/watch?v=5qap5aO4i9A';
+  });
+  const [isYouTubePlaying, setIsYouTubePlaying] = useState<boolean>(false);
+  const [youtubeVolume, setYoutubeVolume] = useState<number>(80);
+  const [isYouTubeModalOpen, setIsYouTubeModalOpen] = useState(false);
+
   // Stars per level
   const [levelStars, setLevelStars] = useState<Record<number, number>>({});
 
@@ -49,6 +59,13 @@ export default function App() {
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   const [isHowToPlayOpen, setIsHowToPlayOpen] = useState(false);
   const [isVictoryModalOpen, setIsVictoryModalOpen] = useState(false);
+
+  // Save YouTube URL to localStorage
+  useEffect(() => {
+    if (youtubeUrl) {
+      localStorage.setItem('guru_yt_music_url', youtubeUrl);
+    }
+  }, [youtubeUrl]);
 
   // Initialize Firebase Auth & Load Profile
   useEffect(() => {
@@ -251,6 +268,7 @@ export default function App() {
         onOpenLeaderboard={() => setIsLeaderboardOpen(true)}
         onOpenMultiplayer={handleMultiplayerRequest}
         onOpenHowToPlay={() => setIsHowToPlayOpen(true)}
+        onOpenYouTubeMusic={() => setIsYouTubeModalOpen(true)}
         onGoHome={() => setActiveView('levels')}
       />
 
@@ -282,6 +300,26 @@ export default function App() {
           />
         )}
       </main>
+
+      {/* Background YouTube Music Engine & Mini Floating Widget */}
+      <YouTubePlayerEngine
+        youtubeUrl={youtubeUrl}
+        isPlaying={isYouTubePlaying}
+        setIsPlaying={setIsYouTubePlaying}
+        onOpenModal={() => setIsYouTubeModalOpen(true)}
+      />
+
+      {/* YouTube Music Selection Modal */}
+      <YouTubeMusicModal
+        isOpen={isYouTubeModalOpen}
+        onClose={() => setIsYouTubeModalOpen(false)}
+        youtubeUrl={youtubeUrl}
+        setYoutubeUrl={setYoutubeUrl}
+        isPlaying={isYouTubePlaying}
+        setIsPlaying={setIsYouTubePlaying}
+        volume={youtubeVolume}
+        setVolume={setYoutubeVolume}
+      />
 
       {/* Mandatory Name Registration Modal */}
       <NameRegistrationModal

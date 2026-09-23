@@ -1,9 +1,10 @@
 import React, { useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { Star, Trophy, ArrowRight, RotateCcw, Award, CheckCircle2 } from 'lucide-react';
+import { Star, Trophy, ArrowRight, RotateCcw, Award, Music, Youtube } from 'lucide-react';
 import { GameLevelConfig, PlayerProfile } from '../types/game';
 import { calculateStarsAndScore } from '../utils/puzzle';
 import { soundManager } from '../lib/sound';
+import { VictoryYouTubeAudio } from './VictoryYouTubeAudio';
 
 interface VictoryModalProps {
   level: GameLevelConfig;
@@ -31,10 +32,10 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
       soundManager.playWin();
       // Launch celebratory confetti burst!
       confetti({
-        particleCount: 100,
-        spread: 70,
+        particleCount: 120,
+        spread: 80,
         origin: { y: 0.6 },
-        colors: ['#f59e0b', '#10b981', '#3b82f6', '#ec4899'],
+        colors: ['#f59e0b', '#10b981', '#3b82f6', '#ec4899', '#ef4444'],
       });
     }
   }, [isOpen]);
@@ -51,6 +52,9 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
+      {/* YouTube Victory Audio Engine */}
+      <VictoryYouTubeAudio isPlaying={isOpen} />
+
       <div className="bg-amber-50 border-4 border-amber-500 rounded-3xl max-w-md w-full overflow-hidden shadow-2xl text-center p-6 space-y-5 transform transition-all scale-100">
         {/* Top Trophy Icon */}
         <div className="mx-auto w-20 h-20 bg-amber-400 border-4 border-amber-600 rounded-full flex items-center justify-center text-4xl shadow-inner animate-bounce">
@@ -65,6 +69,12 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
           <p className="text-xs sm:text-sm font-bold text-amber-800">
             {level.title} Selesai dengan Sempurna!
           </p>
+        </div>
+
+        {/* YouTube Victory Music Indicator */}
+        <div className="bg-red-100 border-2 border-red-400 rounded-2xl p-2.5 text-xs font-black text-red-950 flex items-center justify-center gap-2 shadow-xs animate-pulse">
+          <Youtube className="w-4 h-4 text-red-600 fill-current shrink-0" />
+          <span>🎶 Memutar Suara Kemenangan YouTube!</span>
         </div>
 
         {/* Stars Earned */}

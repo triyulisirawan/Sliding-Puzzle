@@ -39,7 +39,7 @@ export const LevelSelector: React.FC<LevelSelectorProps> = ({
           </h2>
 
           <p className="text-sm sm:text-base font-bold text-amber-900/90 leading-relaxed">
-            Pilih level favoritmu secara bebas! Mulai dari Level 1 (2x2: urutkan 1-3), Level 2 (3x3: urutkan 1-8), hingga Level 3 (4x4: urutkan 1-15)!
+            Pilih level favoritmu secara bebas! Mulai dari Level 1 (3x3: urutkan 1-8), Level 2 (4x4: urutkan 1-15), hingga Level 3 (5x5: urutkan 1-24)!
           </p>
 
           <div className="pt-2 flex flex-wrap gap-3">

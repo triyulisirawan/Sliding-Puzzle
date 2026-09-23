@@ -1,5 +1,5 @@
 import React from 'react';
-import { Volume2, VolumeX, Trophy, Users, HelpCircle, Sparkles, UserCheck } from 'lucide-react';
+import { Volume2, VolumeX, Trophy, Users, HelpCircle, UserCheck, Music } from 'lucide-react';
 import { PlayerProfile } from '../types/game';
 import { soundManager } from '../lib/sound';
 
@@ -11,6 +11,7 @@ interface HeaderProps {
   onOpenLeaderboard: () => void;
   onOpenMultiplayer: () => void;
   onOpenHowToPlay: () => void;
+  onOpenYouTubeMusic: () => void;
   onGoHome: () => void;
 }
 
@@ -22,6 +23,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenLeaderboard,
   onOpenMultiplayer,
   onOpenHowToPlay,
+  onOpenYouTubeMusic,
   onGoHome,
 }) => {
   return (
@@ -74,6 +76,19 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Action Buttons */}
           <div className="flex items-center gap-1 sm:gap-1.5">
+            {/* YouTube Music Guru Button */}
+            <button
+              onClick={() => {
+                soundManager.playClick();
+                onOpenYouTubeMusic();
+              }}
+              className="p-2 sm:p-2.5 bg-red-500 hover:bg-red-600 active:scale-95 border-2 border-red-800 rounded-xl font-bold text-white shadow-sm transition-all focus:outline-none flex items-center gap-1"
+              title="Musik Latar Guru (YouTube)"
+            >
+              <Music className="w-4 h-4" />
+              <span className="hidden xl:inline text-xs font-black">Musik Guru</span>
+            </button>
+
             <button
               onClick={() => {
                 soundManager.playClick();
@@ -115,7 +130,7 @@ export const Header: React.FC<HeaderProps> = ({
                 soundManager.playClick();
               }}
               className="p-2 sm:p-2.5 bg-amber-200 hover:bg-amber-100 border-2 border-amber-700 rounded-xl text-amber-900 shadow-sm transition-all focus:outline-none"
-              title={soundEnabled ? 'Matikan Suara' : 'Nyalakan Suara'}
+              title={soundEnabled ? 'Matikan Efek Suara' : 'Nyalakan Efek Suara'}
             >
               {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4 text-rose-600" />}
             </button>
