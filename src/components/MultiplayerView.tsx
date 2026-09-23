@@ -8,6 +8,7 @@ import {
   query,
   where,
   getDocs,
+  addDoc,
 } from 'firebase/firestore';
 import {
   Users,
@@ -17,6 +18,13 @@ import {
   ArrowLeft,
   Sparkles,
   Youtube,
+  Play,
+  RotateCcw,
+  Monitor,
+  Globe,
+  Award,
+  Crown,
+  Clock,
 } from 'lucide-react';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { GAME_LEVELS, GameLevelConfig, PlayerProfile, TileItem } from '../types/game';
@@ -25,9 +33,11 @@ import {
   getMovableTileIndices,
   checkVictoryCondition,
   calculateProgressPercentage,
+  calculateStarsAndScore,
 } from '../utils/puzzle';
 import { soundManager } from '../lib/sound';
 import { VictoryYouTubeAudio } from './VictoryYouTubeAudio';
+import { IFPGameMode } from './IFPGameMode';
 
 interface MultiplayerViewProps {
   player: PlayerProfile;
@@ -35,10 +45,15 @@ interface MultiplayerViewProps {
 }
 
 export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack }) => {
+  // Mode selection: 'session' (Mode Sesi) vs 'ifp' (Mode IFP)
+  const [multiplayerMode, setMultiplayerMode] = useState<'session' | 'ifp'>('session');
+
+  // Mode Sesi Internal State
   const [viewState, setViewState] = useState<'lobby' | 'creating' | 'playing'>('lobby');
   const [roomCodeInput, setRoomCodeInput] = useState('');
   const [copiedCode, setCopiedCode] = useState(false);
   const [selectedLevel, setSelectedLevel] = useState<GameLevelConfig>(GAME_LEVELS[0]);
+  const [maxPlayers, setMaxPlayers] = useState<number>(4); // Max players setting for Mode Sesi
 
   // Active Room State
   const [roomId, setRoomId] = useState<string | null>(null);
@@ -51,10 +66,11 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
   const [timeSeconds, setTimeSeconds] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
   const [chatReaction, setChatReaction] = useState<string | null>(null);
+  const [isSavedToGlobal, setIsSavedToGlobal] = useState(false);
 
   const botIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Listen to Firestore Room Changes
+  // Listen to Firestore Room Changes in Mode Sesi
   useEffect(() => {
     if (!roomId) return;
     const path = `multiplayer_rooms/${roomId}`;
@@ -66,16 +82,16 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
           const data = docSnap.data();
           setRoomData(data);
 
-          // Sync current level from room data
+          // Sync level
           const roomLvl = GAME_LEVELS.find((l) => l.id === data.level) || GAME_LEVELS[0];
           setSelectedLevel(roomLvl);
 
-          // Populate board if board is currently empty and initialBoard exists
+          // Populate board if empty and initialBoard exists
           if (data.initialBoard) {
             try {
               const values: number[] = JSON.parse(data.initialBoard);
               setBoard((prevBoard) => {
-                if (prevBoard.length > 0) return prevBoard; // keep existing board if active
+                if (prevBoard.length > 0) return prevBoard;
                 return values.map((v, idx) => ({
                   id: `mp-tile-${idx}-${v}`,
                   value: v,
@@ -123,7 +139,6 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
             if (botIntervalRef.current) clearInterval(botIntervalRef.current);
             return prevRoom;
           }
-          // Bot increments progress realistically every 2-3 seconds
           const inc = Math.floor(Math.random() * 12) + 8;
           const nextProg = Math.min(100, currentBotProg + inc);
           const botFinished = nextProg >= 100;
@@ -158,7 +173,7 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
     return code;
   };
 
-  // Create Room
+  // Mode Sesi: Create Room with Max Players
   const handleCreateRoom = async () => {
     soundManager.playClick();
     const code = generateRoomCode();
@@ -169,6 +184,7 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
     const roomPayload = {
       roomCode: code,
       status: 'waiting',
+      maxPlayers: maxPlayers,
       level: selectedLevel.id,
       gridSize: selectedLevel.gridSize,
       maxNumber: selectedLevel.targetNumbersCount,
@@ -203,7 +219,21 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
     }
   };
 
-  // Join Room by Code
+  // Host starts the match manually from Halaman Host
+  const handleHostStartMatch = async () => {
+    if (!roomId) return;
+    soundManager.playClick();
+    try {
+      await updateDoc(doc(db, 'multiplayer_rooms', roomId), {
+        status: 'playing',
+      });
+      setViewState('playing');
+    } catch (err) {
+      console.error('Error starting match as host:', err);
+    }
+  };
+
+  // Mode Sesi: Join Room by Code
   const handleJoinRoom = async () => {
     if (!roomCodeInput.trim()) return;
     soundManager.playClick();
@@ -221,12 +251,12 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
       const roomDoc = snap.docs[0];
       const data = roomDoc.data();
 
-      if (data.status !== 'waiting') {
-        alert('Ruang ini sudah penuh atau permainan telah dimulai.');
+      if (data.status === 'finished') {
+        alert('Sesi pertandingan di ruang ini telah selesai.');
         return;
       }
 
-      // Sync level & parse initial board for guest
+      // Sync level & board
       const levelObj = GAME_LEVELS.find((l) => l.id === data.level) || GAME_LEVELS[0];
       setSelectedLevel(levelObj);
 
@@ -245,23 +275,22 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
         }
       }
 
-      // Update Guest & set room status to playing
+      // Join as Guest
       await updateDoc(doc(db, 'multiplayer_rooms', roomDoc.id), {
         guestId: player.uid,
         guestName: player.displayName,
         guestAvatar: player.avatar,
-        status: 'playing',
       });
 
       setRoomId(roomDoc.id);
       setIsHost(false);
-      setViewState('playing');
+      setViewState(data.status === 'playing' ? 'playing' : 'creating');
     } catch (err) {
       console.error('Error joining room:', err);
     }
   };
 
-  // Spawn Bot Match Fallback
+  // Spawn Bot Match Fallback for Host
   const spawnBotMatch = async () => {
     const bots = [
       { name: 'Dino Cerdas', avatar: '🦖' },
@@ -278,6 +307,7 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
     const roomPayload = {
       roomCode: code,
       status: 'playing',
+      maxPlayers: maxPlayers,
       level: selectedLevel.id,
       gridSize: selectedLevel.gridSize,
       maxNumber: selectedLevel.targetNumbersCount,
@@ -308,7 +338,29 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
     setViewState('playing');
   };
 
-  // Handle Tile Click in Multiplayer
+  // Save Player Score to Global Leaderboard in Firestore
+  const saveToGlobalLeaderboard = async (finalScore: number, finalMoves: number, finalSecs: number) => {
+    if (isSavedToGlobal) return;
+    try {
+      setIsSavedToGlobal(true);
+      await addDoc(collection(db, 'leaderboard'), {
+        userId: player.uid,
+        playerName: `${player.displayName} (Mode Sesi)`,
+        playerAvatar: player.avatar,
+        level: selectedLevel.id,
+        gridSize: selectedLevel.gridSize,
+        score: finalScore,
+        moves: finalMoves,
+        timeSeconds: finalSecs,
+        createdAt: new Date().toISOString(),
+      });
+      console.log('Saved Session Mode score to Global Leaderboard');
+    } catch (err) {
+      console.error('Error saving session score to leaderboard:', err);
+    }
+  };
+
+  // Handle Tile Click in Mode Sesi
   const handleTileClick = async (clickedIdx: number) => {
     if (isFinished || roomData?.status !== 'playing') return;
 
@@ -324,7 +376,7 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
         updatedBoard[clickedIdx],
       ];
 
-      // Check if tile landed in correct spot
+      // Correct spot sound
       const movedTileValue = updatedBoard[emptyIdx].value;
       if (movedTileValue > 0 && movedTileValue <= selectedLevel.targetNumbersCount) {
         if (emptyIdx === movedTileValue - 1) {
@@ -342,6 +394,9 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
       if (isWin) {
         setIsFinished(true);
         soundManager.playWin();
+
+        const { score } = calculateStarsAndScore(selectedLevel, newMoves, timeSeconds);
+        saveToGlobalLeaderboard(score, newMoves, timeSeconds);
       }
 
       // Sync progress to Firestore
@@ -383,7 +438,6 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
     }
   };
 
-  // Render Opponent Data
   const getOpponentInfo = () => {
     if (isHost) {
       return {
@@ -407,16 +461,23 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
   const opponent = getOpponentInfo();
   const myProgress = calculateProgressPercentage(board, selectedLevel.targetNumbersCount);
   const currentGridSize = roomData?.gridSize || selectedLevel.gridSize;
-
   const isGameFinished = isFinished || roomData?.status === 'finished';
+
+  if (multiplayerMode === 'ifp') {
+    return (
+      <IFPGameMode
+        currentUser={player}
+        onBack={() => setMultiplayerMode('session')}
+      />
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-6 animate-fade-in">
-      {/* YouTube Victory Audio Engine */}
       <VictoryYouTubeAudio isPlaying={isGameFinished} />
 
-      {/* Top Header */}
-      <div className="flex items-center justify-between bg-white border-3 border-amber-400 rounded-2xl p-3 shadow-md">
+      {/* Mode Switcher Header */}
+      <div className="flex flex-wrap items-center justify-between bg-white border-3 border-amber-400 rounded-2xl p-3 shadow-md gap-2">
         <button
           onClick={() => {
             soundManager.playClick();
@@ -427,31 +488,72 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
           <ArrowLeft className="w-4 h-4" /> Kembali
         </button>
 
-        <h2 className="text-lg sm:text-xl font-black text-amber-950 flex items-center gap-2">
-          <Users className="w-5 h-5 text-sky-600" /> Mode Multiplayer Online
-        </h2>
+        {/* Sub-mode Toggle Tabs */}
+        <div className="flex items-center bg-amber-100 p-1 rounded-xl border border-amber-300">
+          <button
+            onClick={() => {
+              soundManager.playClick();
+              setMultiplayerMode('session');
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all bg-amber-500 text-white shadow-xs"
+          >
+            <Globe className="w-4 h-4" /> Mode Sesi (Online)
+          </button>
 
-        <div className="w-20" />
+          <button
+            onClick={() => {
+              soundManager.playClick();
+              setMultiplayerMode('ifp');
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all text-amber-950 hover:bg-amber-200"
+          >
+            <Monitor className="w-4 h-4" /> Mode IFP (Smartboard)
+          </button>
+        </div>
+
+        <div className="hidden sm:block w-16" />
       </div>
 
-      {/* Lobby View */}
+      {/* Mode Sesi: Lobby View */}
       {viewState === 'lobby' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Create Room Card */}
+          {/* Host Session Card */}
           <div className="bg-amber-100 border-4 border-amber-500 rounded-3xl p-6 space-y-4 shadow-xl flex flex-col justify-between">
             <div className="space-y-3">
               <div className="w-12 h-12 bg-amber-400 border-2 border-amber-600 rounded-2xl flex items-center justify-center text-2xl shadow-inner">
                 🏠
               </div>
-              <h3 className="text-xl font-black text-amber-950">
-                Buat Ruang Permainan
-              </h3>
-              <p className="text-xs font-bold text-amber-900/90 leading-relaxed">
-                Buat ruang permainan baru dan bagikan kode 5-digit ke temanmu untuk bertanding langsung!
-              </p>
+              <div>
+                <h3 className="text-xl font-black text-amber-950">
+                  Adakan Pertandingan (Host)
+                </h3>
+                <p className="text-xs font-bold text-amber-900/90 leading-relaxed mt-1">
+                  Atur jumlah maksimal pemain, buat kode ruang otomatis, dan masuk ke Halaman Host untuk memimpin jalannya tandingan!
+                </p>
+              </div>
+
+              {/* Max Players Selector */}
+              <div className="space-y-1.5 pt-1">
+                <label className="text-xs font-black text-amber-950 block">Maksimal Pemain Sesi:</label>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {[2, 4, 6, 8].map((count) => (
+                    <button
+                      key={count}
+                      onClick={() => setMaxPlayers(count)}
+                      className={`py-1.5 rounded-xl text-xs font-black border-2 transition-all ${
+                        maxPlayers === count
+                          ? 'bg-amber-500 text-white border-amber-700 shadow-xs'
+                          : 'bg-white text-amber-950 border-amber-300 hover:bg-amber-50'
+                      }`}
+                    >
+                      {count} Pemain
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               {/* Level Selector */}
-              <div className="space-y-1.5 pt-2">
+              <div className="space-y-1.5 pt-1">
                 <label className="text-xs font-black text-amber-950 block">Pilih Level Tandingan:</label>
                 <select
                   value={selectedLevel.id}
@@ -472,28 +574,30 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
 
             <button
               onClick={handleCreateRoom}
-              className="w-full bg-emerald-500 hover:bg-emerald-400 active:scale-95 border-b-4 border-emerald-700 text-white font-black text-base py-3 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2"
+              className="w-full bg-emerald-500 hover:bg-emerald-400 active:scale-95 border-b-4 border-emerald-700 text-white font-black text-base py-3 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 mt-2"
             >
-              <Sparkles className="w-5 h-5" /> Buat Ruang Sekarang
+              <Sparkles className="w-5 h-5" /> Buat Kode Ruang & Masuk Halaman Host
             </button>
           </div>
 
-          {/* Join Room Card */}
+          {/* Join Session Card */}
           <div className="bg-sky-100 border-4 border-sky-500 rounded-3xl p-6 space-y-5 shadow-xl flex flex-col justify-between">
             <div className="space-y-4">
               <div className="w-12 h-12 bg-sky-400 border-2 border-sky-600 rounded-2xl flex items-center justify-center text-2xl shadow-inner">
                 🔑
               </div>
-              <h3 className="text-xl font-black text-sky-950">
-                Gabung Ruang Teman
-              </h3>
-              <p className="text-xs font-bold text-sky-900/90 leading-relaxed">
-                Masukkan kode ruang yang diberikan oleh temanmu untuk langsung bergabung dan mulai bertanding!
-              </p>
+              <div>
+                <h3 className="text-xl font-black text-sky-950">
+                  Gabung Sesi Pertandingan
+                </h3>
+                <p className="text-xs font-bold text-sky-900/90 leading-relaxed mt-1">
+                  Masukkan kode ruang yang diberikan oleh Host untuk bergabung ke dalam sesi pertandingan online!
+                </p>
+              </div>
 
               {/* Join Code Input */}
-              <div className="space-y-2 pt-1">
-                <label className="text-xs font-black text-sky-950 block">Masukkan Kode Ruang Teman:</label>
+              <div className="space-y-2 pt-2">
+                <label className="text-xs font-black text-sky-950 block">Masukkan Kode Ruang 5-Digit:</label>
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -516,27 +620,30 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
         </div>
       )}
 
-      {/* Creating Waiting Room State */}
+      {/* Mode Sesi: Host Control Page & Waiting Room State */}
       {viewState === 'creating' && (
-        <div className="bg-amber-100 border-4 border-amber-500 rounded-3xl p-8 text-center space-y-6 max-w-lg mx-auto shadow-2xl">
-          <div className="w-20 h-20 bg-amber-400 border-4 border-amber-600 rounded-full flex items-center justify-center text-4xl mx-auto animate-pulse">
-            🏠
+        <div className="bg-amber-100 border-4 border-amber-500 rounded-3xl p-6 sm:p-8 text-center space-y-6 max-w-lg mx-auto shadow-2xl">
+          <div className="w-16 h-16 bg-amber-400 border-4 border-amber-600 rounded-full flex items-center justify-center text-3xl mx-auto shadow-md">
+            👑
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1">
             <h3 className="text-2xl font-black text-amber-950">
-              Ruang Tandingan Siap!
+              {isHost ? 'Halaman Host Pertandingan' : 'Menunggu Host Memulai Pertandingan'}
             </h3>
             <p className="text-xs font-bold text-amber-800">
-              Bagikan kode berikut kepada temanmu agar bisa bergabung:
+              Kode Ruang Otomatis Dibuat. Bagikan kode ini ke pemain lain:
             </p>
           </div>
 
           {/* Room Code Display Box */}
           <div className="bg-white border-3 border-amber-400 rounded-2xl p-4 flex items-center justify-between shadow-inner">
-            <span className="text-3xl sm:text-4xl font-black tracking-widest text-amber-950">
-              {roomData?.roomCode}
-            </span>
+            <div className="text-left">
+              <span className="text-xs font-black text-amber-800 block">Kode Ruang:</span>
+              <span className="text-2xl sm:text-3xl font-black tracking-widest text-amber-950">
+                {roomData?.roomCode}
+              </span>
+            </div>
             <button
               onClick={copyRoomCode}
               className="bg-amber-400 hover:bg-amber-300 border-2 border-amber-600 font-black px-3 py-1.5 rounded-xl text-xs text-amber-950 flex items-center gap-1.5 shadow-xs"
@@ -546,21 +653,62 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
             </button>
           </div>
 
-          <div className="flex items-center justify-center gap-2 text-xs font-extrabold text-amber-900 bg-amber-200/80 rounded-xl p-3 border border-amber-300">
-            <div className="w-3 h-3 rounded-full bg-emerald-500 animate-ping" />
-            Menunggu teman masuk ke ruang...
+          {/* Joined Players Status */}
+          <div className="bg-white border-2 border-amber-300 rounded-2xl p-4 space-y-2 text-left shadow-xs">
+            <div className="text-xs font-black text-amber-950 flex items-center justify-between border-b pb-2">
+              <span>Peserta Bergabung (Maks {roomData?.maxPlayers || maxPlayers} Pemain)</span>
+              <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full text-[10px]">
+                {roomData?.guestName ? '2 / 2 Siap' : '1 / 2 Bergabung'}
+              </span>
+            </div>
+
+            <div className="space-y-1.5 text-xs font-extrabold text-amber-900">
+              <div className="flex items-center justify-between bg-amber-50 p-2 rounded-xl border border-amber-200">
+                <span className="flex items-center gap-2">
+                  <span>{player.avatar}</span> {player.displayName} (Host)
+                </span>
+                <span className="text-emerald-600 font-bold">Siap 👑</span>
+              </div>
+
+              <div className="flex items-center justify-between bg-amber-50 p-2 rounded-xl border border-amber-200">
+                <span className="flex items-center gap-2">
+                  <span>{roomData?.guestAvatar || '❓'}</span>{' '}
+                  {roomData?.guestName || 'Menunggu Peserta Masuk...'}
+                </span>
+                <span className={roomData?.guestName ? 'text-emerald-600 font-bold' : 'text-amber-600 font-bold'}>
+                  {roomData?.guestName ? 'Bergabung' : 'Menunggu...'}
+                </span>
+              </div>
+            </div>
           </div>
 
-          <button
-            onClick={spawnBotMatch}
-            className="bg-sky-500 hover:bg-sky-400 border-b-4 border-sky-700 text-white font-black px-4 py-2.5 rounded-2xl text-xs shadow-md transition-all flex items-center justify-center gap-2 mx-auto"
-          >
-            <Bot className="w-4 h-4" /> Teman belum ada? Tantang Bot AI!
-          </button>
+          {/* Host Action Controls */}
+          {isHost ? (
+            <div className="space-y-3 pt-2">
+              <button
+                onClick={handleHostStartMatch}
+                className="w-full bg-emerald-500 hover:bg-emerald-400 border-b-4 border-emerald-700 text-white font-black text-base py-3 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2"
+              >
+                <Play className="w-5 h-5 fill-current" /> Mulai Pertandingan Sekarang
+              </button>
+
+              <button
+                onClick={spawnBotMatch}
+                className="bg-sky-500 hover:bg-sky-400 border-b-4 border-sky-700 text-white font-black px-4 py-2.5 rounded-2xl text-xs shadow-md transition-all flex items-center justify-center gap-2 mx-auto"
+              >
+                <Bot className="w-4 h-4" /> Tambahkan Bot AI
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-2 text-xs font-extrabold text-amber-900 bg-amber-200/80 rounded-xl p-3 border border-amber-300">
+              <div className="w-3 h-3 rounded-full bg-emerald-500 animate-ping" />
+              Menunggu Host menekan tombol Mulai Pertandingan...
+            </div>
+          )}
         </div>
       )}
 
-      {/* Active Multiplayer Playing State */}
+      {/* Mode Sesi: Active Match Playing State */}
       {viewState === 'playing' && (
         <div className="space-y-5">
           {/* Status Header & Scoreboard */}
@@ -606,7 +754,7 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
             </div>
           </div>
 
-          {/* Puzzle Board Container */}
+          {/* Interactive Puzzle Board */}
           <div className="bg-amber-200/80 border-4 border-amber-600 rounded-3xl p-4 shadow-xl max-w-xl mx-auto flex justify-center">
             {board.length === 0 ? (
               <div className="text-center p-8 text-amber-950 font-black">
@@ -656,7 +804,7 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
             )}
           </div>
 
-          {/* Quick Chat Reaction Buttons */}
+          {/* Quick Chat Reactions */}
           <div className="flex items-center justify-center gap-2 flex-wrap">
             {['Hebat! 👏', 'Ayo! 🚀', 'Hampir Selesai! ⭐', 'Haha! 😄'].map((msg) => (
               <button
@@ -679,7 +827,7 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
             </div>
           )}
 
-          {/* Victory / Defeat Overlay Banner */}
+          {/* Victory / Defeat Overlay Banner & Global Leaderboard Sync Notification */}
           {isGameFinished && (
             <div className="bg-amber-400 border-4 border-amber-600 rounded-3xl p-6 text-center space-y-4 shadow-2xl animate-fade-in">
               <span className="text-5xl">
@@ -687,13 +835,12 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
               </span>
               <h3 className="text-2xl font-black text-amber-950">
                 {roomData?.winnerId === player.uid
-                  ? 'Selamat! Kamu Menang Tandingan ini! 🎉'
+                  ? 'Selamat! Kamu Menang Sesi Pertandingan ini! 🎉'
                   : `Hebat! ${opponent.name} Menang Pertandingan!`}
               </h3>
 
-              <div className="bg-red-100 border-2 border-red-400 rounded-2xl p-2.5 text-xs font-black text-red-950 flex items-center justify-center gap-2 max-w-xs mx-auto animate-pulse">
-                <Youtube className="w-4 h-4 text-red-600 fill-current shrink-0" />
-                <span>🎶 Memutar Suara Kemenangan YouTube!</span>
+              <div className="bg-emerald-100 border-2 border-emerald-500 rounded-2xl p-2.5 text-xs font-black text-emerald-950 max-w-sm mx-auto shadow-inner">
+                ✨ Poin pertandingan otomatis disimpan ke Papan Peringkat Global!
               </div>
 
               <div className="flex justify-center gap-3">
@@ -702,11 +849,12 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ player, onBack
                     soundManager.playClick();
                     setViewState('lobby');
                     setIsFinished(false);
+                    setIsSavedToGlobal(false);
                     setBoard([]);
                   }}
                   className="bg-emerald-500 hover:bg-emerald-400 border-b-4 border-emerald-700 text-white font-black px-5 py-2.5 rounded-2xl text-sm shadow-md"
                 >
-                  Main Lagi
+                  Main Sesi Lagi
                 </button>
               </div>
             </div>
